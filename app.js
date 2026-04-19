@@ -29,6 +29,8 @@ function prelozStatus(status) {
 function showLogin() {
   byId('login-screen').style.display = 'flex';
   byId('main-app').style.display = 'none';
+  const btn = document.querySelector('#login-screen .primary-btn');
+  if (btn) btn.onclick = prihlasSa;
 }
 
 function showApp() {
@@ -501,6 +503,12 @@ function ulozAktualnuLokaciuVeduceho() {
 window.addEventListener('storage', async e => { if (e.key === 'kk_user') await loadBootstrap(); });
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const loginBtn = document.querySelector('#login-screen .primary-btn');
+  if (loginBtn) loginBtn.addEventListener('click', prihlasSa);
+  const pass = byId('login-heslo');
+  const meno = byId('login-meno');
+  if (pass) pass.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasSa(); });
+  if (meno) meno.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasSa(); });
   await loadBootstrap();
   if (actualUser) showApp();
   else showLogin();

@@ -6,13 +6,6 @@
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": [
-    "kk-solartech",
-    "warehouse",
-    "qr",
-    "express",
-    "mongodb"
-  ],
   "author": "Jakub Jašuš",
   "license": "ISC",
   "dependencies": {

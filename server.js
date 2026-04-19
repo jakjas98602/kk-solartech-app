@@ -1,4 +1,4 @@
-﻿const path = require('path');
+const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 require('dotenv').config();
@@ -9,7 +9,7 @@ const MONGODB_URI = process.env.MONGODB_URI;
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(__dirname));
 
 const userSchema = new mongoose.Schema({
   meno: String,
@@ -27,7 +27,7 @@ const locationSchema = new mongoose.Schema({
 
 const toolSchema = new mongoose.Schema({
   nazov: String,
-  interné_cislo: String,
+  interne_cislo: String,
   kategoria: String,
   fotka_sitku: String,
   aktualna_lokacia_id: String,
@@ -66,12 +66,7 @@ const Scan = mongoose.model('Scan', scanSchema);
 async function seedIfEmpty() {
   const count = await User.countDocuments();
   if (count === 0) {
-    await User.create({
-      meno: 'admin',
-      email: 'admin@kk-solartech.sk',
-      heslo: 'admin123',
-      rola: 'admin'
-    });
+    await User.create({ meno: 'admin', email: 'admin@kk-solartech.sk', heslo: 'admin123', rola: 'admin' });
   }
 }
 
@@ -88,52 +83,18 @@ app.get('/api/all', async (req, res) => {
   res.json({ users, locations, tools, moves, scans });
 });
 
-app.post('/api/users', async (req, res) => {
-  const doc = await User.create(req.body);
-  res.json(doc);
-});
-
-app.post('/api/locations', async (req, res) => {
-  const doc = await Location.create(req.body);
-  res.json(doc);
-});
-
-app.post('/api/tools', async (req, res) => {
-  const doc = await Tool.create(req.body);
-  res.json(doc);
-});
-
-app.put('/api/tools/:id', async (req, res) => {
-  const doc = await Tool.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(doc);
-});
-
-app.post('/api/moves', async (req, res) => {
-  const doc = await Move.create(req.body);
-  res.json(doc);
-});
-
-app.post('/api/scans', async (req, res) => {
-  const doc = await Scan.create(req.body);
-  res.json(doc);
-});
-
-app.get('/api/seed', async (req, res) => {
-  await seedIfEmpty();
-  res.json({ ok: true });
-});
+app.post('/api/users', async (req, res) => res.json(await User.create(req.body)));
+app.post('/api/locations', async (req, res) => res.json(await Location.create(req.body)));
+app.post('/api/tools', async (req, res) => res.json(await Tool.create(req.body)));
+app.put('/api/tools/:id', async (req, res) => res.json(await Tool.findByIdAndUpdate(req.params.id, req.body, { new: true })));
+app.post('/api/moves', async (req, res) => res.json(await Move.create(req.body)));
+app.post('/api/scans', async (req, res) => res.json(await Scan.create(req.body)));
 
 async function start() {
-  if (!MONGODB_URI) {
-    throw new Error('Missing MONGODB_URI');
-  }
-
+  if (!MONGODB_URI) throw new Error('Missing MONGODB_URI');
   await mongoose.connect(MONGODB_URI);
   await seedIfEmpty();
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
 }
 
 start().catch(err => {
