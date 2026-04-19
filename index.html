@@ -50,12 +50,14 @@
               <div class="eyebrow">Domovská obrazovka</div>
               <h1 id="home-title">Prehľad stavby</h1>
               <p id="home-subtitle">Tu uvidíš svoju priradenú stavbu a prehľad naskenovaného náradia.</p>
+              <div id="home-actions" class="row-actions"></div>
             </div>
             <div class="hero-stats">
               <div class="stat-box"><span id="home-naradie">0</span><small>Naskenované náradie</small></div>
               <div class="stat-box"><span id="home-stavba">-</span><small>Priradená stavba</small></div>
             </div>
           </div>
+
           <div class="grid-2">
             <div class="panel">
               <h3>Moja stavba</h3>
@@ -79,6 +81,7 @@
             <select id="moj-stavba-select"></select>
             <button class="primary-btn" type="button" onclick="pridajSaNaStavbu()">Priradiť sa k stavbe</button>
           </div>
+          <div class="panel" id="stavby-admin-box"></div>
           <div class="panel">
             <h3>Zoznam stavieb</h3>
             <div id="zoznam-lokacii"></div>
@@ -87,14 +90,7 @@
 
         <section id="sklady-section" class="page-section hidden">
           <div class="page-head"><h2>Sklady</h2><p>Prehľad skladov a ich obsahu.</p></div>
-          <div class="panel">
-            <h3>Pridať sklad / lokáciu</h3>
-            <input id="lokacia-nazov" type="text" placeholder="Názov lokácie" />
-            <select id="lokacia-typ"><option value="stavba">Stavba</option><option value="sklad">Sklad</option></select>
-            <input id="lokacia-adresa" type="text" placeholder="Adresa" />
-            <input id="lokacia-veduci" type="text" placeholder="Vedúci" />
-            <button class="primary-btn" type="button" onclick="pridajLokaciu()">Pridať lokáciu</button>
-          </div>
+          <div class="panel" id="sklady-admin-box"></div>
         </section>
 
         <section id="naradie-section" class="page-section hidden">
@@ -114,6 +110,7 @@
               </select>
               <select id="filter-lokacia" onchange="renderTools()"></select>
             </div>
+
             <div class="panel" id="admin-panel" style="display:none;">
               <h3>Admin: pridať náradie</h3>
               <input id="naradie-nazov" type="text" placeholder="Názov náradia" />
@@ -130,6 +127,19 @@
 
         <section id="presuny-section" class="page-section hidden">
           <div class="page-head"><h2>Presuny</h2><p>Presun náradia medzi stavbami a skladmi.</p></div>
+
+          <div class="panel">
+            <h3>Filtrovanie presunov</h3>
+            <div class="grid-2">
+              <input id="move-filter-qr" type="text" placeholder="QR alebo názov náradia" oninput="renderHistory()" />
+              <input id="move-filter-lokacia" type="text" placeholder="Lokácia" oninput="renderHistory()" />
+              <input id="move-filter-user" type="text" placeholder="Kto spravil" oninput="renderHistory()" />
+              <input id="move-filter-typ" type="text" placeholder="Typ presunu" oninput="renderHistory()" />
+              <input id="move-filter-od" type="date" onchange="renderHistory()" />
+              <input id="move-filter-do" type="date" onchange="renderHistory()" />
+            </div>
+          </div>
+
           <div class="grid-2">
             <div class="panel" id="scanner-presun" style="display:none;">
               <h3>Presun sken</h3>
@@ -141,6 +151,7 @@
                 <button class="ghost-btn" type="button" onclick="zrusPresunSken()">Zrušiť</button>
               </div>
             </div>
+
             <div class="panel">
               <h3>História presunov</h3>
               <div id="zoznam-presunov"></div>
@@ -150,7 +161,25 @@
 
         <section id="skeny-section" class="page-section hidden">
           <div class="page-head"><h2>Skeny</h2><p>Ranný a večerný sken pre kontrolu náradia.</p></div>
+
           <div class="grid-2">
+            <div class="panel">
+              <h3>Ovládanie skenov</h3>
+              <div class="row-actions">
+                <button class="primary-btn" type="button" onclick="spustiRannySken()">Ranný sken</button>
+                <button class="primary-btn" type="button" onclick="spustiVecernySken()">Večerný sken</button>
+                <button class="ghost-btn" type="button" onclick="otvorPridanieOsobnehoNaradia()">Pridať náradie QR</button>
+                <button class="ghost-btn" type="button" onclick="spustiPresunSken()">Presun náradia</button>
+                <button class="ghost-btn" type="button" onclick="spustiVyhladavaciSken()">Vyhľadávať QR</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>Prehľad skenov</h3>
+              <div id="ranny-info" class="info-box">Naskenované: 0</div>
+              <div id="vecerny-info" class="info-box">Naskenované: 0</div>
+            </div>
+
             <div class="panel" id="scanner-ranny" style="display:none;">
               <h3>Ranný sken</h3>
               <div id="ranny-scanner-status" class="small-muted"></div>
@@ -160,6 +189,7 @@
                 <button class="ghost-btn" type="button" onclick="zrusRannySken()">Zrušiť</button>
               </div>
             </div>
+
             <div class="panel" id="scanner-vecerny" style="display:none;">
               <h3>Večerný sken</h3>
               <div id="vecerny-scanner-status" class="small-muted"></div>
@@ -169,6 +199,7 @@
                 <button class="ghost-btn" type="button" onclick="zrusVecernySken()">Zrušiť</button>
               </div>
             </div>
+
             <div class="panel" id="scanner-osobne" style="display:none;">
               <h3>Osobné náradie</h3>
               <div id="osobne-info" class="info-box"></div>
@@ -179,6 +210,7 @@
                 <button class="ghost-btn" type="button" onclick="zrusPridavanieOsobnehoNadia()">Zrušiť</button>
               </div>
             </div>
+
             <div class="panel" id="scanner-vyhladavanie" style="display:none;">
               <h3>Vyhľadávanie QR</h3>
               <div id="vyhladavanie-status" class="small-muted"></div>
@@ -189,6 +221,7 @@
 
         <section id="admin-section" class="page-section hidden">
           <div class="page-head"><h2>Admin</h2><p>Správa používateľov a nastavení.</p></div>
+
           <div class="grid-2">
             <div class="panel" id="password-panel" style="display:none;">
               <h3>Zmena hesla</h3>
@@ -197,6 +230,7 @@
               <input id="potvrdit-heslo-zmena" type="password" placeholder="Potvrdiť heslo" />
               <button class="primary-btn" type="button" onclick="zmenHeslo()">Zmeniť heslo</button>
             </div>
+
             <div class="panel" id="veduci-panel" style="display:none;">
               <h3>Vedúci stavby</h3>
               <div id="moj-stav" class="info-box"></div>
@@ -205,6 +239,7 @@
               <div id="moje-naradie"></div>
             </div>
           </div>
+
           <div class="panel">
             <h3>Používatelia</h3>
             <div id="zoznam-pouzitvatelov"></div>
