@@ -11,25 +11,31 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(__dirname));
 
+function defaultDB() {
+  return {
+    users: [
+      { _id: 'u1', meno: 'admin', email: 'admin@kk.sk', heslo: 'admin', rola: 'admin', stavba_id: '' }
+    ],
+    locations: [],
+    tools: [],
+    moves: [],
+    scans: []
+  };
+}
+
 function loadDB() {
   if (!fs.existsSync(DB_FILE)) {
-    const initial = {
-      users: [
-        { _id: 'u1', meno: 'admin', email: 'admin@kk.sk', heslo: 'admin', rola: 'admin', stavba_id: '' },
-        { _id: 'u2', meno: 'veduci1', email: 'veduci1@kk.sk', heslo: '1234', rola: 'veduci_stavby', stavba_id: '' },
-        { _id: 'u3', meno: 'user1', email: 'user1@kk.sk', heslo: '1234', rola: 'pouzivatel', stavba_id: '' }
-      ],
-      locations: [
-        { _id: 'l1', nazov: 'Sklad Bratislava', typ: 'sklad', adresa: 'Bratislava', veduci_id: '', veduci_meno: '' },
-        { _id: 'l2', nazov: 'Stavba Trnava', typ: 'stavba', adresa: 'Trnava', veduci_id: '', veduci_meno: '' }
-      ],
-      tools: [],
-      moves: [],
-      scans: []
-    };
-    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2), 'utf8');
+    const init = defaultDB();
+    fs.writeFileSync(DB_FILE, JSON.stringify(init, null, 2), 'utf8');
+    return init;
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  try {
+    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  } catch (e) {
+    const init = defaultDB();
+    fs.writeFileSync(DB_FILE, JSON.stringify(init, null, 2), 'utf8');
+    return init;
+  }
 }
 
 function saveDB(db) {
@@ -38,10 +44,6 @@ function saveDB(db) {
 
 function newId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function findById(arr, id) {
-  return arr.find(x => String(x._id) === String(id));
 }
 
 app.get('/api/all', (req, res) => {
@@ -57,10 +59,7 @@ app.get('/api/users', (req, res) => {
 app.post('/api/users', (req, res) => {
   const db = loadDB();
   const { meno, email, heslo, rola, stavba_id = '' } = req.body || {};
-
-  if (!meno || !heslo || !rola) {
-    return res.status(400).json({ error: 'Chýbajú povinné polia.' });
-  }
+  if (!meno || !heslo || !rola) return res.status(400).json({ error: 'Chýbajú povinné polia.' });
 
   const user = {
     _id: newId('u'),
@@ -81,12 +80,7 @@ app.put('/api/users/:id', (req, res) => {
   const idx = db.users.findIndex(u => String(u._id) === String(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Používateľ sa nenašiel.' });
 
-  db.users[idx] = {
-    ...db.users[idx],
-    ...req.body,
-    _id: db.users[idx]._id
-  };
-
+  db.users[idx] = { ...db.users[idx], ...req.body, _id: db.users[idx]._id };
   saveDB(db);
   res.json(db.users[idx]);
 });
@@ -108,10 +102,7 @@ app.get('/api/locations', (req, res) => {
 app.post('/api/locations', (req, res) => {
   const db = loadDB();
   const { nazov, typ, adresa = '', veduci_id = '', veduci_meno = '' } = req.body || {};
-
-  if (!nazov || !typ) {
-    return res.status(400).json({ error: 'Chýbajú povinné polia.' });
-  }
+  if (!nazov || !typ) return res.status(400).json({ error: 'Chýbajú povinné polia.' });
 
   const location = {
     _id: newId('l'),
@@ -132,12 +123,7 @@ app.put('/api/locations/:id', (req, res) => {
   const idx = db.locations.findIndex(l => String(l._id) === String(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Lokácia sa nenašla.' });
 
-  db.locations[idx] = {
-    ...db.locations[idx],
-    ...req.body,
-    _id: db.locations[idx]._id
-  };
-
+  db.locations[idx] = { ...db.locations[idx], ...req.body, _id: db.locations[idx]._id };
   saveDB(db);
   res.json(db.locations[idx]);
 });
@@ -184,12 +170,7 @@ app.put('/api/tools/:id', (req, res) => {
   const idx = db.tools.findIndex(t => String(t._id) === String(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Náradie sa nenašlo.' });
 
-  db.tools[idx] = {
-    ...db.tools[idx],
-    ...req.body,
-    _id: db.tools[idx]._id
-  };
-
+  db.tools[idx] = { ...db.tools[idx], ...req.body, _id: db.tools[idx]._id };
   saveDB(db);
   res.json(db.tools[idx]);
 });

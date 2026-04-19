@@ -68,21 +68,6 @@ function toolQrDataUrl(text) {
   }
 }
 
-function renderQrPreview(containerId, qrText) {
-  const el = byId(containerId);
-  if (!el) return;
-  const img = toolQrDataUrl(qrText);
-  el.innerHTML = qrText ? `
-    <div class="info-box">
-      <strong>QR kód:</strong> ${esc(qrText)}<br>
-      ${img ? `<img src="${img}" alt="QR" class="qr-image">` : '<div class="muted">QR obrázok sa nepodarilo vygenerovať.</div>'}
-      <div class="row-actions">
-        <button class="primary-btn" type="button" onclick="stiahniQr('${esc(qrText)}')">Stiahnuť QR</button>
-        <button class="ghost-btn" type="button" onclick="vytlacitQr('${esc(qrText)}')">Vytlačiť QR</button>
-      </div>
-    </div>` : '';
-}
-
 async function loadBootstrap() {
   data = await api('/api/all');
   bootstrapLoaded = true;
@@ -166,16 +151,16 @@ function showSection(sectionId) {
   if (sectionId === 'nastavenia-section') renderSettings();
 }
 
+function currentUserLocation() {
+  const locId = actualUser?.stavba_id || '';
+  return data.locations.find(l => String(l._id) === String(locId)) || null;
+}
+
 function renderStats() {
   if (byId('stat-lokacie')) byId('stat-lokacie').textContent = data.locations.length;
   if (byId('stat-naradie')) byId('stat-naradie').textContent = data.tools.length;
   if (byId('stat-presuny')) byId('stat-presuny').textContent = data.moves.length;
   if (byId('stat-skeny')) byId('stat-skeny').textContent = data.scans.length;
-}
-
-function currentUserLocation() {
-  const locId = actualUser?.stavba_id || '';
-  return data.locations.find(l => String(l._id) === String(locId)) || null;
 }
 
 function renderHome() {
@@ -310,10 +295,6 @@ function renderHistory() {
 
 function renderSettings() {
   if (byId('password-panel')) byId('password-panel').style.display = 'block';
-  const usersPanel = byId('users-panel');
-  if (usersPanel) usersPanel.style.display = 'none';
-  const veduciPanel = byId('veduci-panel');
-  if (veduciPanel) veduciPanel.style.display = 'none';
 }
 
 function renderAll() {
@@ -515,7 +496,7 @@ function otvorDetail(id) {
         <button class="ghost-btn" type="button" onclick="zatvorModal('detail-modal')">Zavrieť</button>
       </div>
     </div>`;
-  byId('detail-modal').style.display = 'flex';
+  document.getElementById('detail-modal').style.display = 'flex';
 }
 
 function presunNaVyberLokacie(id) {
@@ -532,7 +513,7 @@ function presunNaVyberLokacie(id) {
         <button class="ghost-btn" type="button" onclick="zatvorModal('edit-modal')">Zavrieť</button>
       </div>
     </div>`;
-  byId('edit-modal').style.display = 'flex';
+  document.getElementById('edit-modal').style.display = 'flex';
 }
 
 async function potvrditPresunZDetailu(id) {
@@ -591,7 +572,7 @@ function otvorUpravu(id) {
         <button class="ghost-btn" type="button" onclick="zatvorModal('edit-modal')">Zavrieť</button>
       </div>
     </div>`;
-  byId('edit-modal').style.display = 'flex';
+  document.getElementById('edit-modal').style.display = 'flex';
 }
 
 async function ulozitUpravuNaradia(id) {
@@ -768,20 +749,31 @@ function zrusScanner() {
 
 async function startScanner(mode) {
   await safeStopScanner();
-  const elementId = mode === 'ranny' ? 'scanner-ranny' : mode === 'vecerny' ? 'scanner-vecerny' : mode === 'presun' ? 'scanner-presun' : mode === 'osobne' ? 'scanner-osobne' : 'scanner-vyhladavanie';
-  const statusId = mode === 'ranny' ? 'ranny-scanner-status' : mode === 'vecerny' ? 'vecerny-scanner-status' : mode === 'presun' ? 'presun-scanner-status' : mode === 'osobne' ? 'osobne-scanner-status' : 'vyhladavanie-status';
+  const elementId = mode === 'ranny' ? 'scanner-ranny-reader'
+    : mode === 'vecerny' ? 'scanner-vecerny-reader'
+    : mode === 'presun' ? 'scanner-presun-reader'
+    : mode === 'osobne' ? 'scanner-osobne-reader'
+    : 'scanner-vyhladavanie-reader';
+
+  const statusId = mode === 'ranny' ? 'ranny-scanner-status'
+    : mode === 'vecerny' ? 'vecerny-scanner-status'
+    : mode === 'presun' ? 'presun-scanner-status'
+    : mode === 'osobne' ? 'osobne-scanner-status'
+    : 'vyhladavanie-status';
+
   const wrapper = byId(elementId);
   const status = byId(statusId);
   if (!wrapper) return;
 
-  wrapper.style.display = 'block';
-  wrapper.innerHTML = `<div id="${elementId}-reader" class="scanner-reader"></div>`;
+  wrapper.innerHTML = '';
+  wrapper.style.minHeight = '320px';
 
-  const scanner = new Html5Qrcode(`${elementId}-reader`);
+  const scanner = new Html5Qrcode(elementId);
   const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
   try {
     if (status) status.textContent = 'Pripravujem kameru...';
+
     try {
       await scanner.start({ facingMode: { exact: 'environment' } }, config, decodedText => onScanSuccess(decodedText, mode), () => {});
     } catch (e1) {
@@ -789,6 +781,7 @@ async function startScanner(mode) {
       if (!camId) throw e1;
       await scanner.start({ deviceId: { exact: camId } }, config, decodedText => onScanSuccess(decodedText, mode), () => {});
     }
+
     qrScanner = scanner;
     qrMode = mode;
     if (status) status.textContent = 'Kamera je spustená.';
@@ -893,6 +886,11 @@ function zrusPresunSken() {
   if (byId('scanner-presun')) byId('scanner-presun').style.display = 'none';
   vybrateNaradieId = null;
   if (byId('potvrdi-presun')) byId('potvrdi-presun').disabled = true;
+}
+
+function zrusPridavanieOsobnehoNadia() {
+  safeStopScanner();
+  if (byId('scanner-osobne')) byId('scanner-osobne').style.display = 'none';
 }
 
 function spustiVyhladavaciSken() {

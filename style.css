@@ -393,14 +393,6 @@ textarea {
   min-width: 150px;
 }
 
-#scanner-ranny,
-#scanner-vecerny,
-#scanner-osobne,
-#scanner-vyhladavanie,
-#scanner-presun {
-  min-height: 220px;
-}
-
 #zoznam-naradia, #zoznam-lokacii, #zoznam-pouzivatelov, #zoznam-presunov {
   display: block;
 }
