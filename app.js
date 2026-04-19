@@ -7,30 +7,22 @@ let rannySkenList = [];
 let vecernySkenList = [];
 let uzNaskenovaneRano = new Set();
 let uzNaskenovaneVecer = new Set();
-let lastQrCanvas = null;
-let lastQrText = '';
 
 const byId = id => document.getElementById(id);
 
-async function api(path, method = 'GET', body = null) {
+async function api(path, method = "GET", body = null) {
   const res = await fetch(path, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : null
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : null,
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
-function prelozStatus(status) {
-  return ({ dostupne: 'Dostupné', na_stavbe: 'Na stavbe', oprava: 'Oprava', stratene: 'Stratené', presunute: 'Presunuté' }[status] || status || 'Nezadané');
-}
-
 function showLogin() {
   byId('login-screen').style.display = 'flex';
   byId('main-app').style.display = 'none';
-  const btn = document.querySelector('#login-screen .primary-btn');
-  if (btn) btn.onclick = prihlasSa;
 }
 
 function showApp() {
@@ -54,8 +46,9 @@ async function loadBootstrap() {
 async function prihlasSa() {
   const meno = byId('login-meno').value.trim();
   const heslo = byId('login-heslo').value;
+  if (!meno || !heslo) return alert('Zadaj meno a heslo.');
   const u = data.users.find(x => x.meno === meno && x.heslo === heslo);
-  if (!u) return alert('Nesprávne meno alebo heslo');
+  if (!u) return alert('Nesprávne meno alebo heslo.');
   actualUser = u;
   saveSession();
   showApp();
@@ -66,6 +59,10 @@ function odhlasSa() {
   actualUser = null;
   saveSession();
   showLogin();
+}
+
+function prelozStatus(status) {
+  return ({ dostupne: 'Dostupné', na_stavbe: 'Na stavbe', oprava: 'Oprava', stratene: 'Stratené', presunute: 'Presunuté' }[status] || status || 'Nezadané');
 }
 
 function renderStats() {
@@ -137,7 +134,6 @@ function renderHistory() {
 function renderAdmin() {
   if (byId('admin-panel')) byId('admin-panel').style.display = actualUser?.rola === 'admin' ? 'block' : 'none';
   if (byId('veduci-panel')) byId('veduci-panel').style.display = actualUser ? 'block' : 'none';
-  if (actualUser?.rola === 'admin') renderUsers();
 }
 
 function renderAll() {
@@ -181,15 +177,6 @@ async function pridajNaradie() {
     const qr = `QR-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const body = { nazov: byId('naradie-nazov').value.trim(), interne_cislo: byId('naradie-cislo').value.trim(), kategoria: byId('naradie-kategoria').value.trim(), fotka_sitku: e.target.result, aktualna_lokacia_id: loc?._id || '', aktualna_lokacia: loc?.nazov || '', stav: 'dostupne', qr_kod: qr, historie: [{ typ: 'vytvorenie', datum: new Date().toLocaleString('sk-SK'), popis: 'Náradie vytvoril admin' }], poznamky: [], udrzba: [] };
     await api('/api/tools', 'POST', body);
-    lastQrText = qr;
-    const container = byId('qr-container');
-    if (window.QRCode && container) {
-      const c = document.createElement('canvas');
-      await QRCode.toCanvas(c, qr, { width: 220, margin: 2 });
-      lastQrCanvas = c;
-      container.innerHTML = '';
-      container.appendChild(c);
-    }
     await loadBootstrap();
   };
   reader.readAsDataURL(file);
@@ -198,8 +185,7 @@ async function pridajNaradie() {
 function otvorLokaciu(id) {
   const l = data.locations.find(x => String(x._id) === String(id));
   const count = data.tools.filter(n => String(n.aktualna_lokacia_id) === String(id)).length;
-  alert(`Lokácia: ${l?.nazov || ''}
-Počet náradia: ${count}`);
+  alert(`Lokácia: ${l?.nazov || ''}\nPočet náradia: ${count}`);
 }
 
 function otvorDetail(id) {
@@ -332,7 +318,10 @@ async function getBackCameraDeviceId() {
   try {
     const devices = await Html5Qrcode.getCameras();
     if (!devices || !devices.length) return null;
-    const back = devices.find(d => { const label = (d.label || '').toLowerCase(); return label.includes('back') || label.includes('rear') || label.includes('environment'); });
+    const back = devices.find(d => {
+      const label = (d.label || '').toLowerCase();
+      return label.includes('back') || label.includes('rear') || label.includes('environment');
+    });
     return back ? back.id : devices[0].id;
   } catch {
     return null;
@@ -340,7 +329,15 @@ async function getBackCameraDeviceId() {
 }
 
 async function safeStopScanner() {
-  try { if (qrScanner) { await qrScanner.stop(); await qrScanner.clear(); qrScanner = null; } } catch (e) { console.warn(e); }
+  try {
+    if (qrScanner) {
+      await qrScanner.stop();
+      await qrScanner.clear();
+      qrScanner = null;
+    }
+  } catch (e) {
+    console.warn(e);
+  }
 }
 
 async function startScanner(mode) {
@@ -426,7 +423,6 @@ function renderVecernyZoznam() {
 
 function odstranZRanneho(qr) { rannySkenList = rannySkenList.filter(i => i.qr_kod !== qr); uzNaskenovaneRano.delete(qr); renderRannyZoznam(); }
 function odstranZVecerneho(qr) { vecernySkenList = vecernySkenList.filter(i => i.qr_kod !== qr); uzNaskenovaneVecer.delete(qr); renderVecernyZoznam(); }
-
 function otvorRannySken() { startScanner('ranny'); }
 function zrusRannySken() { safeStopScanner(); byId('scanner-ranny').style.display = 'none'; }
 function otvorVecernySken() { startScanner('vecerny'); }
@@ -447,9 +443,7 @@ async function porovnajVecernySken() {
   const lokaciaId = byId('vecerna-lokacia').value;
   if (!lokaciaId) return alert('Vyber stavbu.');
   const chybajuce = rannySkenList.filter(i => !vecernySkenList.some(v => v.qr_kod === i.qr_kod));
-  if (chybajuce.length > 0) return alert('Chýba náradie:
-' + chybajuce.map(i => i.nazov).join('
-'));
+  if (chybajuce.length > 0) return alert('Chýba náradie:\n' + chybajuce.map(i => i.nazov).join('\n'));
   await api('/api/scans', 'POST', { uzivatel: actualUser?.meno || '', lokacia_id: lokaciaId, lokacia_nazov: data.locations.find(l => String(l._id) === String(lokaciaId))?.nazov || '', typ: 'vecerny_sken', data: [...vecernySkenList], datum_cas: new Date().toLocaleString('sk-SK') });
   alert('Večerný sken sedí s ranným.');
   await loadBootstrap();
@@ -476,8 +470,7 @@ async function potvrdiPresun() {
 async function exportujCSV() {
   const rows = [['nazov', 'qr_kod', 'stav', 'lokacia', 'kategoria', 'interne_cislo', 'datum']];
   data.tools.forEach(n => rows.push([n.nazov, n.qr_kod, n.stav || '', n.aktualna_lokacia || '', n.kategoria || '', n.interne_cislo || '', n.createdAt || '']));
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('
-');
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -500,16 +493,20 @@ function ulozAktualnuLokaciuVeduceho() {
   alert(val ? `Uložené: ${data.locations.find(l => String(l._id) === String(val))?.nazov || ''}` : 'Nastavené na Žiadna.');
 }
 
-window.addEventListener('storage', async e => { if (e.key === 'kk_user') await loadBootstrap(); });
-
 document.addEventListener('DOMContentLoaded', async () => {
-  const loginBtn = document.querySelector('#login-screen .primary-btn');
+  const loginBtn = document.querySelector('#login-btn');
   if (loginBtn) loginBtn.addEventListener('click', prihlasSa);
-  const pass = byId('login-heslo');
   const meno = byId('login-meno');
-  if (pass) pass.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasSa(); });
+  const heslo = byId('login-heslo');
   if (meno) meno.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasSa(); });
-  await loadBootstrap();
-  if (actualUser) showApp();
-  else showLogin();
+  if (heslo) heslo.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasSa(); });
+  try {
+    await loadBootstrap();
+    if (actualUser) showApp();
+    else showLogin();
+  } catch (e) {
+    console.error(e);
+    showLogin();
+    alert('Nepodarilo sa načítať dáta zo servera. Skontroluj server.js a MongoDB.');
+  }
 });
