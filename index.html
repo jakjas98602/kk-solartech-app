@@ -40,7 +40,7 @@
         <button class="nav-item" type="button" onclick="showSection('naradie-section')">Náradie</button>
         <button class="nav-item" type="button" onclick="showSection('presuny-section')">Presuny</button>
         <button class="nav-item" type="button" onclick="showSection('skeny-section')">Skeny</button>
-        <button class="nav-item" type="button" onclick="showSection('admin-section')">Admin</button>
+        <button class="nav-item" type="button" onclick="showSection('nastavenia-section')">Nastavenia</button>
       </aside>
 
       <main class="content">
@@ -183,6 +183,7 @@
             <div class="panel" id="scanner-ranny" style="display:none;">
               <h3>Ranný sken</h3>
               <div id="ranny-scanner-status" class="small-muted"></div>
+              <div id="ranny-scanner-reader" class="scanner-reader"></div>
               <div id="ranny-zoznam"></div>
               <div class="row-actions">
                 <button class="primary-btn" type="button" onclick="ulozRannySken()">Uložiť ranný sken</button>
@@ -193,6 +194,7 @@
             <div class="panel" id="scanner-vecerny" style="display:none;">
               <h3>Večerný sken</h3>
               <div id="vecerny-scanner-status" class="small-muted"></div>
+              <div id="vecerny-scanner-reader" class="scanner-reader"></div>
               <div id="vecerny-zoznam"></div>
               <div class="row-actions">
                 <button class="primary-btn" type="button" onclick="porovnajVecernySken()">Porovnať sken</button>
@@ -204,6 +206,7 @@
               <h3>Osobné náradie</h3>
               <div id="osobne-info" class="info-box"></div>
               <div id="osobne-scanner-status" class="small-muted"></div>
+              <div id="osobne-scanner-reader" class="scanner-reader"></div>
               <div id="osobne-zoznam"></div>
               <div class="row-actions">
                 <button class="primary-btn" type="button" onclick="potvrdiOsobneNaradie()">Potvrdiť</button>
@@ -214,35 +217,28 @@
             <div class="panel" id="scanner-vyhladavanie" style="display:none;">
               <h3>Vyhľadávanie QR</h3>
               <div id="vyhladavanie-status" class="small-muted"></div>
+              <div id="vyhladavanie-scanner-reader" class="scanner-reader"></div>
               <button class="primary-btn" type="button" onclick="spustiVyhladavaciSken()">Spustiť sken</button>
             </div>
           </div>
         </section>
 
-        <section id="admin-section" class="page-section hidden">
-          <div class="page-head"><h2>Admin</h2><p>Správa používateľov a nastavení.</p></div>
-
+        <section id="nastavenia-section" class="page-section hidden">
+          <div class="page-head"><h2>Nastavenia</h2><p>Správa tvojho prístupu.</p></div>
           <div class="grid-2">
-            <div class="panel" id="password-panel" style="display:none;">
+            <div class="panel">
               <h3>Zmena hesla</h3>
               <input id="stare-heslo" type="password" placeholder="Staré heslo" />
               <input id="nove-heslo-zmena" type="password" placeholder="Nové heslo" />
               <input id="potvrdit-heslo-zmena" type="password" placeholder="Potvrdiť heslo" />
               <button class="primary-btn" type="button" onclick="zmenHeslo()">Zmeniť heslo</button>
             </div>
-
-            <div class="panel" id="veduci-panel" style="display:none;">
-              <h3>Vedúci stavby</h3>
+            <div class="panel">
+              <h3>Moja stavba</h3>
               <div id="moj-stav" class="info-box"></div>
               <select id="moj-stavba-select"></select>
               <button class="primary-btn" type="button" onclick="pridajSaNaStavbu()">Priradiť sa k stavbe</button>
-              <div id="moje-naradie"></div>
             </div>
-          </div>
-
-          <div class="panel">
-            <h3>Používatelia</h3>
-            <div id="zoznam-pouzitvatelov"></div>
           </div>
         </section>
       </main>

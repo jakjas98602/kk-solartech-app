@@ -24,6 +24,18 @@ async function api(path, method = 'GET', body = null) {
   return res.json();
 }
 
+function roleIs(role) {
+  return actualUser?.rola === role;
+}
+
+function isAdmin() {
+  return roleIs('admin');
+}
+
+function isVeduci() {
+  return roleIs('veduci_stavby');
+}
+
 function showLogin() {
   if (byId('login-screen')) byId('login-screen').style.display = 'flex';
   if (byId('main-app')) byId('main-app').style.display = 'none';
@@ -42,18 +54,6 @@ function saveSession() {
 
 function prelozStatus(status) {
   return ({ dostupne: 'Dostupné', na_stavbe: 'Na stavbe', oprava: 'Oprava', stratene: 'Stratené', presunute: 'Presunuté' }[status] || status || 'Nezadané');
-}
-
-function roleIs(role) {
-  return actualUser?.rola === role;
-}
-
-function isAdmin() {
-  return roleIs('admin');
-}
-
-function isVeduci() {
-  return roleIs('veduci_stavby');
 }
 
 function toolQrDataUrl(text) {
@@ -75,7 +75,7 @@ function renderQrPreview(containerId, qrText) {
   el.innerHTML = qrText ? `
     <div class="info-box">
       <strong>QR kód:</strong> ${esc(qrText)}<br>
-      ${img ? `<img src="${img}" alt="QR" style="width:220px;height:220px;margin-top:10px;display:block;">` : '<div class="muted">QR obrázok sa nepodarilo vygenerovať.</div>'}
+      ${img ? `<img src="${img}" alt="QR" class="qr-image">` : '<div class="muted">QR obrázok sa nepodarilo vygenerovať.</div>'}
       <div class="row-actions">
         <button class="primary-btn" type="button" onclick="stiahniQr('${esc(qrText)}')">Stiahnuť QR</button>
         <button class="ghost-btn" type="button" onclick="vytlacitQr('${esc(qrText)}')">Vytlačiť QR</button>
@@ -128,7 +128,7 @@ function setActiveNav(sectionId) {
     'naradie-section': 3,
     'presuny-section': 4,
     'skeny-section': 5,
-    'admin-section': 6
+    'nastavenia-section': 6
   };
   const idx = map[sectionId];
   if (typeof idx === 'number') document.querySelectorAll('.nav-item')[idx]?.classList.add('active');
@@ -163,10 +163,7 @@ function showSection(sectionId) {
     renderVecernyZoznam();
     renderSkensOverview();
   }
-  if (sectionId === 'admin-section') {
-    renderAdmin();
-    renderUsers();
-  }
+  if (sectionId === 'nastavenia-section') renderSettings();
 }
 
 function renderStats() {
@@ -177,7 +174,7 @@ function renderStats() {
 }
 
 function currentUserLocation() {
-  const locId = localStorage.getItem('veduciLokaciaId') || actualUser?.stavba_id || '';
+  const locId = actualUser?.stavba_id || '';
   return data.locations.find(l => String(l._id) === String(locId)) || null;
 }
 
@@ -190,41 +187,49 @@ function renderHome() {
   if (byId('home-title')) byId('home-title').textContent = isAdmin() ? 'Administrátorský prehľad' : 'Prehľad stavby';
   if (byId('home-subtitle')) byId('home-subtitle').textContent = isAdmin() ? 'Správa stavieb, skladov, náradia a pohybov.' : 'Tu uvidíš priradenú stavbu, skeny a presuny.';
   if (byId('moj-stav')) byId('moj-stav').innerHTML = loc ? `<strong>Aktuálna stavba:</strong> ${esc(loc.nazov)}<br><span class="small-muted">${esc(loc.adresa || '')}</span>` : 'Zatiaľ nie si priradený k žiadnej stavbe.';
+  renderHomeButtons();
+}
+
+function renderHomeButtons() {
+  const el = byId('home-actions');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="row-actions">
+      <button class="primary-btn" type="button" onclick="spustiRannySken()">Ranný sken</button>
+      <button class="primary-btn" type="button" onclick="spustiVecernySken()">Večerný sken</button>
+      <button class="ghost-btn" type="button" onclick="otvorPridanieOsobnehoNaradia()">Pridať náradie QR</button>
+      <button class="ghost-btn" type="button" onclick="spustiPresunSken()">Presun náradia</button>
+    </div>
+  `;
 }
 
 function renderUsers() {
-  const el = byId('zoznam-pouzitvatelov');
+  const el = byId('zoznam-pouzivatelov');
   if (!el) return;
   if (!isAdmin()) {
-    el.innerHTML = '<p>Prístup len pre admina.</p>';
+    el.innerHTML = '';
     return;
   }
-  el.innerHTML = data.users.length ? data.users.map(u => {
-    const loc = data.locations.find(l => String(l._id) === String(u.stavba_id));
-    return `
-      <div class="pouzitvatel-item">
-        <strong>${esc(u.meno)}</strong> (${esc(u.rola)})<br>
-        ${esc(u.email || '')}
-        ${u.rola === 'veduci_stavby' ? `<br><span class="small-muted">Stavba: ${esc(loc?.nazov || '-')}</span>` : ''}
-        <div class="row-actions">
-          <button class="ghost-btn" onclick="upravitHesloPouzivatela('${u._id}')">Zmeniť heslo</button>
-        </div>
+  el.innerHTML = data.users.length ? data.users.map(u => `
+    <div class="pouzitvatel-item">
+      <strong>${esc(u.meno)}</strong> (${esc(u.rola)})<br>
+      ${esc(u.email || '')}
+      <div class="row-actions">
+        <button class="ghost-btn" onclick="upravitHesloPouzivatela('${u._id}')">Zmeniť heslo</button>
       </div>
-    `;
-  }).join('') : '<p>Žiadni používatelia.</p>';
+    </div>
+  `).join('') : '<p>Žiadni používatelia.</p>';
 }
 
 function renderLocations() {
   const el = byId('zoznam-lokacii');
   if (!el) return;
   el.innerHTML = data.locations.length ? data.locations.map(l => {
-    const veduci = data.users.find(u => String(u._id) === String(l.veduci_id));
     const count = data.tools.filter(t => String(t.aktualna_lokacia_id) === String(l._id)).length;
     return `
       <div class="lokacia-item">
         <strong>${esc(l.nazov)}</strong> <span class="badge">${esc(l.typ)}</span><br>
         ${esc(l.adresa || '')}
-        <div class="small-muted">Vedúci: ${esc(veduci?.meno || l.veduci_meno || '-')}</div>
         <div class="small-muted">Náradie: ${count}</div>
         <div class="row-actions">
           <button class="ghost-btn" onclick="otvorLokaciu('${l._id}')">Detail</button>
@@ -243,14 +248,6 @@ function renderSelects() {
     else if (id === 'moj-stavba-select') el.innerHTML = `<option value="">Vyber stavbu</option>${data.locations.filter(l => l.typ === 'stavba').map(l => `<option value="${l._id}">${esc(l.nazov)}</option>`).join('')}`;
     else el.innerHTML = `<option value="">Vyber lokáciu</option>${opts}`;
   });
-  renderVeduciSelect();
-}
-
-function renderVeduciSelect() {
-  const el = byId('lokacia-veduci-select');
-  if (!el) return;
-  const options = data.users.filter(u => u.rola === 'veduci_stavby').map(u => `<option value="${u._id}">${esc(u.meno)}</option>`).join('');
-  el.innerHTML = `<option value="">Vyber vedúceho</option>${options}`;
 }
 
 function renderTools() {
@@ -269,8 +266,7 @@ function renderTools() {
     <div class="naradie-item">
       <strong>${esc(n.nazov)}</strong> <span class="badge">✓ ${esc(prelozStatus(n.stav))}</span><br>
       QR: ${esc(n.qr_kod)}<br>
-      Interné číslo: ${esc(n.interne_cislo || '-')}<br>
-      Kategória: ${esc(n.kategoria || '-')}<br>
+      Interné číslo: ${esc(n.interne_cislo || '-')}, Kategória: ${esc(n.kategoria || '-')}
       <div class="lokacia-label">Nachádza sa: <strong>${esc(n.aktualna_lokacia || '-')}</strong></div>
       <div class="row-actions">
         <button class="ghost-btn" onclick="otvorDetail('${n._id}')">Detail</button>
@@ -307,90 +303,17 @@ function renderHistory() {
       ${esc(p.kto_spravil || '')} presunul náradie
       <strong>${esc(p.nazov_naradia || p.qr_kod || p.naradie_id || '-')}</strong>
       z <strong>${esc(p.z_lokacie || '-')}</strong> do <strong>${esc(p.do_lokacie || '-')}</strong>
-      <br>
-      QR: ${esc(p.qr_kod || '-')}
-      ${p.poznamka ? `<br>Poznámka: ${esc(p.poznamka)}` : ''}
+      <br>QR: ${esc(p.qr_kod || '-')}
     </div>
   `).join('') : '<p>Žiadna história presunov.</p>';
 }
 
-function renderAdmin() {
-  if (byId('admin-panel')) byId('admin-panel').style.display = isAdmin() ? 'block' : 'none';
-  if (byId('veduci-panel')) byId('veduci-panel').style.display = isVeduci() ? 'block' : 'none';
-  if (byId('password-panel')) byId('password-panel').style.display = actualUser ? 'block' : 'none';
-  if (byId('my-stavba-section')) byId('my-stavba-section').style.display = isVeduci() ? 'block' : 'none';
-  if (byId('admin-pridaj-stavbu')) byId('admin-pridaj-stavbu').style.display = isAdmin() ? 'block' : 'none';
-  if (byId('admin-pridaj-sklad')) byId('admin-pridaj-sklad').style.display = isAdmin() ? 'block' : 'none';
-}
-
-function renderVeduciPanel() {
-  const box = byId('moj-stav');
-  if (box) {
-    const loc = currentUserLocation();
-    box.innerHTML = loc ? `<strong>Aktuálna stavba:</strong> ${esc(loc.nazov)}<br><span class="small-muted">${esc(loc.adresa || '')}</span>` : 'Zatiaľ nie si priradený k žiadnej stavbe.';
-  }
-  const list = byId('moje-naradie');
-  if (list) {
-    const myTools = data.tools.filter(t => String(t.vlastnik_meno || '') === String(actualUser?.meno || ''));
-    list.innerHTML = myTools.length ? myTools.map(t => `
-      <div class="naradie-item">
-        <strong>${esc(t.nazov)}</strong><br>
-        QR: ${esc(t.qr_kod)}<br>
-        Stav: ${esc(prelozStatus(t.stav))}
-      </div>
-    `).join('') : '<p>Nemáš zatiaľ žiadne náradie priradené na meno.</p>';
-  }
-}
-
-function renderHomeButtons() {
-  const el = byId('home-actions');
-  if (!el) return;
-  const canScan = true;
-  el.innerHTML = `
-    <div class="row-actions">
-      <button class="primary-btn" type="button" onclick="spustiRannySken()">Ranný sken</button>
-      <button class="primary-btn" type="button" onclick="spustiVecernySken()">Večerný sken</button>
-      <button class="ghost-btn" type="button" onclick="otvorPridanieOsobnehoNaradia()">Pridať náradie QR</button>
-      <button class="ghost-btn" type="button" onclick="spustiPresunSken()">Presun náradia</button>
-    </div>
-  `;
-  if (!canScan) el.innerHTML = '';
-}
-
-function renderSkensOverview() {
-  renderHomeButtons();
-  if (byId('ranny-info')) byId('ranny-info').textContent = `Naskenované: ${rannySkenList.length}`;
-  if (byId('vecerny-info')) byId('vecerny-info').textContent = `Naskenované: ${vecernySkenList.length}`;
-}
-
-function renderOsobneNaradie() {
-  const el = byId('osobne-zoznam');
-  if (!el) return;
-  el.innerHTML = osobneNaradieBuffer.length ? osobneNaradieBuffer.map((i, idx) => `
-    <div class="naradie-item">
-      <strong>${esc(i.nazov)}</strong><br>
-      QR: ${esc(i.qr_kod)}
-      <div class="row-actions">
-        <button class="ghost-btn" onclick="odstranOsobneNaradie(${idx})">Odstrániť</button>
-      </div>
-    </div>
-  `).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>';
-}
-
-function renderRannyZoznam() {
-  const el = byId('ranny-zoznam');
-  if (!el) return;
-  el.innerHTML = rannySkenList.length ? rannySkenList.map(i => `
-    <div>${esc(i.nazov)} <button class="ghost-btn" onclick="odstranZRanneho('${esc(i.qr_kod)}')">Odstrániť</button></div>
-  `).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>';
-}
-
-function renderVecernyZoznam() {
-  const el = byId('vecerny-zoznam');
-  if (!el) return;
-  el.innerHTML = vecernySkenList.length ? vecernySkenList.map(i => `
-    <div>${esc(i.nazov)} <button class="ghost-btn" onclick="odstranZVecerneho('${esc(i.qr_kod)}')">Odstrániť</button></div>
-  `).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>';
+function renderSettings() {
+  if (byId('password-panel')) byId('password-panel').style.display = 'block';
+  const usersPanel = byId('users-panel');
+  if (usersPanel) usersPanel.style.display = 'none';
+  const veduciPanel = byId('veduci-panel');
+  if (veduciPanel) veduciPanel.style.display = 'none';
 }
 
 function renderAll() {
@@ -404,14 +327,10 @@ function renderAll() {
   renderSelects();
   renderTools();
   renderHistory();
-  renderAdmin();
-  renderVeduciPanel();
   renderHome();
   renderUsers();
-  renderOsobneNaradie();
-  renderRannyZoznam();
-  renderVecernyZoznam();
   renderSkensOverview();
+  renderSettings();
   showSection(currentSection);
 }
 
@@ -426,9 +345,6 @@ async function zmenHeslo() {
   if (nove !== potvrd) return alert('Heslá sa nezhodujú.');
   await api(`/api/users/${me._id}`, 'PUT', { ...me, heslo: nove });
   alert('Heslo bolo zmenené.');
-  byId('stare-heslo').value = '';
-  byId('nove-heslo-zmena').value = '';
-  byId('potvrdit-heslo-zmena').value = '';
   await loadBootstrap();
 }
 
@@ -442,28 +358,12 @@ async function upravitHesloPouzivatela(id) {
   await loadBootstrap();
 }
 
-async function pridajPouzivatela() {
-  if (!isAdmin()) return alert('Nemáš oprávnenie.');
-  const body = {
-    meno: byId('nove-meno').value.trim(),
-    email: byId('novy-email').value.trim(),
-    heslo: byId('nove-heslo').value,
-    rola: byId('nova-rola').value,
-    stavba_id: ''
-  };
-  if (!body.meno || !body.heslo) return alert('Zadaj meno a heslo.');
-  await api('/api/users', 'POST', body);
-  await loadBootstrap();
-  alert('Používateľ bol úspešne pridaný.');
-}
-
 async function pridajSaNaStavbu() {
   const loc = byId('moj-stavba-select').value;
   if (!loc) return alert('Vyber stavbu.');
   try {
     await api(`/api/users/${actualUser._id}`, 'PUT', { ...actualUser, stavba_id: loc });
     actualUser.stavba_id = loc;
-    localStorage.setItem('veduciLokaciaId', loc);
     await loadBootstrap();
     alert('Bol si priradený k stavbe.');
   } catch (e) {
@@ -472,48 +372,43 @@ async function pridajSaNaStavbu() {
   }
 }
 
-async function pridajLokaciu() {
-  if (!isAdmin()) return alert('Lokácie môže pridávať iba admin.');
-  const veduciId = byId('lokacia-veduci-select')?.value || '';
-  const body = {
-    nazov: byId('lokacia-nazov')?.value.trim(),
-    typ: byId('lokacia-typ')?.value,
-    adresa: byId('lokacia-adresa')?.value.trim(),
-    veduci_id: veduciId,
-    veduci_meno: data.users.find(u => String(u._id) === String(veduciId))?.meno || ''
-  };
-  if (!body.nazov) return alert('Zadaj názov lokácie.');
-  await api('/api/locations', 'POST', body);
-  await loadBootstrap();
-  alert('Lokácia bola úspešne pridaná.');
-}
-
 function otvorLokaciu(id) {
   const l = data.locations.find(x => String(x._id) === String(id));
   if (!l) return;
   const tools = data.tools.filter(n => String(n.aktualna_lokacia_id) === String(id));
-  const veduci = data.users.find(u => String(u._id) === String(l.veduci_id));
   document.getElementById('detail-content').innerHTML = `
     <div class="detail-box">
       <h4>${esc(l.nazov)}</h4>
       <p><strong>Typ:</strong> ${esc(l.typ)}</p>
-      <p><strong>Vedúci:</strong> ${esc(veduci?.meno || l.veduci_meno || '-')}</p>
       <p><strong>Adresa:</strong> ${esc(l.adresa || '-')}</p>
       <div class="card">
         <strong>Náradie na tejto lokácii</strong>
-        <ul>
-          ${tools.map(t => `<li>${esc(t.nazov)} (${esc(t.qr_kod)})</li>`).join('') || '<li>Žiadne náradie</li>'}
-        </ul>
+        <div class="tools-grid">
+          ${tools.map(t => {
+            const qrImg = toolQrDataUrl(t.qr_kod);
+            return `
+              <div class="tool-card">
+                <div><strong>${esc(t.nazov)}</strong></div>
+                <div>QR: ${esc(t.qr_kod)}</div>
+                ${qrImg ? `<img src="${qrImg}" class="qr-image" alt="QR">` : ''}
+                <div class="row-actions">
+                  <button class="ghost-btn" type="button" onclick="stiahniQr('${esc(t.qr_kod)}')">Stiahnuť</button>
+                  <button class="ghost-btn" type="button" onclick="vytlacitQr('${esc(t.qr_kod)}')">Tlačiť</button>
+                </div>
+              </div>
+            `;
+          }).join('') || '<p>Žiadne náradie</p>'}
+        </div>
       </div>
       <div class="row-actions">
-        <button class="ghost-btn" type="button" onclick="zatvorModal(\'detail-modal\')">Zavrieť</button>
+        <button class="ghost-btn" type="button" onclick="zatvorModal('detail-modal')">Zavrieť</button>
       </div>
     </div>`;
   byId('detail-modal').style.display = 'flex';
 }
 
 async function otvorPridanieOsobnehoNaradia() {
-  if (!isVeduci()) return alert('Toto je len pre vedúceho stavby.');
+  if (!isVeduci() && !isAdmin()) return alert('Nemáš oprávnenie.');
   osobneNaradieBuffer = [];
   if (byId('scanner-osobne')) byId('scanner-osobne').style.display = 'block';
   if (byId('osobne-info')) byId('osobne-info').textContent = 'Skenuj QR kódy náradia.';
@@ -527,7 +422,6 @@ function zrusPridavanieOsobnehoNadia() {
 }
 
 async function potvrdiOsobneNaradie() {
-  if (!isVeduci()) return alert('Toto je len pre vedúceho stavby.');
   if (!osobneNaradieBuffer.length) return alert('Najprv naskenuj aspoň jedno náradie.');
   const loc = currentUserLocation();
   if (!loc) return alert('Najprv si priraď stavbu.');
@@ -539,14 +433,27 @@ async function potvrdiOsobneNaradie() {
       vlastnik_meno: actualUser.meno,
       aktualna_lokacia_id: loc._id,
       aktualna_lokacia: loc.nazov,
-      stav: 'na_stavbe',
-      historie: [...(tool.historie || []), { typ: 'priradenie', datum: new Date().toLocaleString('sk-SK'), popis: `Priradené pod ${actualUser.meno}` }]
+      stav: 'na_stavbe'
     });
   }
   osobneNaradieBuffer = [];
   renderOsobneNaradie();
   if (byId('osobne-info')) byId('osobne-info').textContent = 'Náradie bolo priradené pod tvoje meno.';
   await loadBootstrap();
+}
+
+function renderOsobneNaradie() {
+  const el = byId('osobne-zoznam');
+  if (!el) return;
+  el.innerHTML = osobneNaradieBuffer.length ? osobneNaradieBuffer.map((i, idx) => `
+    <div class="naradie-item">
+      <strong>${esc(i.nazov)}</strong><br>
+      QR: ${esc(i.qr_kod)}
+      <div class="row-actions">
+        <button class="ghost-btn" onclick="odstranOsobneNaradie(${idx})">Odstrániť</button>
+      </div>
+    </div>
+  `).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>';
 }
 
 function odstranOsobneNaradie(index) {
@@ -571,7 +478,7 @@ async function pridajNaradie() {
       stav: 'dostupne',
       qr_kod: qr,
       vlastnik_meno: '',
-      historie: [{ typ: 'vytvorenie', datum: new Date().toLocaleString('sk-SK'), popis: 'Náradie vytvoril admin' }],
+      historie: [],
       poznamky: [],
       udrzba: []
     };
@@ -588,38 +495,27 @@ function otvorDetail(id) {
   const item = data.tools.find(n => String(n._id) === String(id));
   if (!item) return;
   const qrImg = toolQrDataUrl(item.qr_kod);
-  const hist = (item.historie || []).slice().reverse().map(h => `<li><strong>${esc(h.datum || '')}</strong> – ${esc(h.typ || '')}: ${esc(h.popis || '')}</li>`).join('') || '<li>Bez histórie</li>';
-  const notes = (item.poznamky || []).slice().reverse().map(n => `<li><strong>${esc(n.datum || '')}</strong>: ${esc(n.text || '')} ${esc(n.autor || '')}</li>`).join('') || '<li>Bez poznámok</li>';
   document.getElementById('detail-content').innerHTML = `
     <div class="detail-box">
       <p><strong>Názov:</strong> ${esc(item.nazov)}</p>
       <p><strong>QR text:</strong> ${esc(item.qr_kod)}</p>
       <p><strong>Interné číslo:</strong> ${esc(item.interne_cislo || '-')}</p>
       <p><strong>Kategória:</strong> ${esc(item.kategoria || '-')}</p>
-      <p><strong>Stav:</strong> ✓ ${esc(prelozStatus(item.stav))}</p>
+      <p><strong>Stav:</strong> ${esc(prelozStatus(item.stav))}</p>
       <p><strong>Lokácia:</strong> ${esc(item.aktualna_lokacia || '-')}</p>
-      <p><strong>Vlastník:</strong> ${esc(item.vlastnik_meno || '-')}</p>
       <div class="card">
         <strong>QR obrázok:</strong><br>
-        ${qrImg ? `<img src="${qrImg}" alt="QR" style="width:260px;height:260px;margin-top:10px;display:block;">` : '<div class="muted">QR obrázok sa nepodarilo vygenerovať.</div>'}
+        ${qrImg ? `<img src="${qrImg}" class="qr-image" alt="QR">` : '<div class="muted">QR obrázok sa nepodarilo vygenerovať.</div>'}
         <div class="row-actions">
           <button class="primary-btn" type="button" onclick="stiahniQr('${esc(item.qr_kod)}')">Stiahnuť QR</button>
           <button class="ghost-btn" type="button" onclick="vytlacitQr('${esc(item.qr_kod)}')">Vytlačiť QR</button>
         </div>
       </div>
-      <div class="card"><strong>História</strong><ul>${hist}</ul></div>
-      <div class="card"><strong>Poznámky</strong><ul>${notes}</ul></div>
       <div class="row-actions">
-        <button class="primary-btn" type="button" onclick="presunNaVyberLokacie('${item._id}')">Presunúť na lokáciu</button>
-        <button class="ghost-btn" type="button" onclick="openToolActionModal('${item._id}','checkin')">Check-in</button>
-        <button class="ghost-btn" type="button" onclick="openToolActionModal('${item._id}','issue')">Problém</button>
-        <button class="ghost-btn" type="button" onclick="pridajPoznamkuKNaradi('${item._id}')">Poznámka</button>
-        <button class="ghost-btn" type="button" onclick="reportInspection('${item._id}')">Servis</button>
-        <button class="ghost-btn" type="button" onclick="otvorUpravu('${item._id}')">Upraviť</button>
         <button class="ghost-btn" type="button" onclick="zatvorModal('detail-modal')">Zavrieť</button>
       </div>
     </div>`;
-  document.getElementById('detail-modal').style.display = 'flex';
+  byId('detail-modal').style.display = 'flex';
 }
 
 function presunNaVyberLokacie(id) {
@@ -636,7 +532,7 @@ function presunNaVyberLokacie(id) {
         <button class="ghost-btn" type="button" onclick="zatvorModal('edit-modal')">Zavrieť</button>
       </div>
     </div>`;
-  document.getElementById('edit-modal').style.display = 'flex';
+  byId('edit-modal').style.display = 'flex';
 }
 
 async function potvrditPresunZDetailu(id) {
@@ -651,19 +547,18 @@ async function presunNaradieNaLokaciu(id, lokaciaId, novyStatus) {
   if (!item) return;
   const loc = data.locations.find(l => String(l._id) === String(lokaciaId));
   if (!loc) return alert('Lokácia sa nenašla.');
-  const old = item.aktualna_lokacia || '-';
   const update = {
     ...item,
     aktualna_lokacia_id: loc._id,
     aktualna_lokacia: loc.nazov,
     stav: novyStatus,
-    historie: [...(item.historie || []), { typ: 'presun', datum: new Date().toLocaleString('sk-SK'), popis: `Presun z ${old} do ${loc.nazov}` }]
+    historie: [...(item.historie || []), { typ: 'presun', datum: new Date().toLocaleString('sk-SK'), popis: `Presun do ${loc.nazov}` }]
   };
   const move = {
     naradie_id: item._id,
     nazov_naradia: item.nazov,
     qr_kod: item.qr_kod,
-    z_lokacie: old,
+    z_lokacie: item.aktualna_lokacia || '-',
     do_lokacie: loc.nazov,
     datum_cas: new Date().toLocaleString('sk-SK'),
     kto_spravil: actualUser?.meno || '',
@@ -683,13 +578,12 @@ function otvorUpravu(id) {
   document.getElementById('edit-content').innerHTML = `
     <div class="detail-box">
       <h4>Upraviť náradie</h4>
-      <label>Názov</label><input id="edit-nazov" value="${esc(item.nazov || '')}" placeholder="Názov">
-      <label>Interné číslo</label><input id="edit-interne" value="${esc(item.interne_cislo || '')}" placeholder="Interné číslo">
-      <label>Kategória</label><input id="edit-kategoria" value="${esc(item.kategoria || '')}" placeholder="Kategória">
-      <label>QR text</label><input id="edit-qr" value="${esc(item.qr_kod || '')}" placeholder="QR text">
+      <label>Názov</label><input id="edit-nazov" value="${esc(item.nazov || '')}">
+      <label>Interné číslo</label><input id="edit-interne" value="${esc(item.interne_cislo || '')}">
+      <label>Kategória</label><input id="edit-kategoria" value="${esc(item.kategoria || '')}">
+      <label>QR text</label><input id="edit-qr" value="${esc(item.qr_kod || '')}">
       <div class="card">
-        <strong>QR obrázok</strong><br>
-        ${qrImg ? `<img src="${qrImg}" alt="QR" style="width:260px;height:260px;margin-top:10px;display:block;">` : ''}
+        ${qrImg ? `<img src="${qrImg}" class="qr-image" alt="QR">` : ''}
       </div>
       <div class="row-actions">
         <button class="primary-btn" type="button" onclick="ulozitUpravuNaradia('${item._id}')">Uložiť</button>
@@ -697,7 +591,7 @@ function otvorUpravu(id) {
         <button class="ghost-btn" type="button" onclick="zatvorModal('edit-modal')">Zavrieť</button>
       </div>
     </div>`;
-  document.getElementById('edit-modal').style.display = 'flex';
+  byId('edit-modal').style.display = 'flex';
 }
 
 async function ulozitUpravuNaradia(id) {
@@ -721,8 +615,7 @@ async function generateNewToolQr(id) {
   const newQr = `QR-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   await api(`/api/tools/${id}`, 'PUT', {
     ...item,
-    qr_kod: newQr,
-    historie: [...(item.historie || []), { typ: 'qr', datum: new Date().toLocaleString('sk-SK'), popis: `Vygenerovaný nový QR: ${newQr}` }]
+    qr_kod: newQr
   });
   await loadBootstrap();
   otvorUpravu(id);
@@ -757,7 +650,7 @@ function openToolActionModal(id, mode) {
         <h4>Check-in / presun</h4>
         <p><strong>${esc(item.nazov)}</strong></p>
         <select id="action-lokacia">${locations}</select>
-        <textarea id="action-poznamka" placeholder="Poznámka / dôvod" rows="4" style="width:100%;"></textarea>
+        <textarea id="action-poznamka" placeholder="Poznámka / dôvod" rows="4"></textarea>
         <div class="row-actions">
           <button class="primary-btn" type="button" onclick="ulozAction('${item._id}','checkin')">Uložiť</button>
           <button class="ghost-btn" type="button" onclick="zatvorModal('edit-modal')">Zavrieť</button>
@@ -769,14 +662,14 @@ function openToolActionModal(id, mode) {
         <h4>Nahlásiť problém</h4>
         <p><strong>${esc(item.nazov)}</strong></p>
         <input id="action-typ" value="Porucha" placeholder="Typ problému">
-        <textarea id="action-poznamka" placeholder="Popis problému" rows="4" style="width:100%;"></textarea>
+        <textarea id="action-poznamka" placeholder="Popis problému" rows="4"></textarea>
         <div class="row-actions">
           <button class="primary-btn" type="button" onclick="ulozAction('${item._id}','issue')">Uložiť</button>
           <button class="ghost-btn" type="button" onclick="zatvorModal('edit-modal')">Zavrieť</button>
         </div>
       </div>`;
   }
-  document.getElementById('edit-modal').style.display = 'flex';
+  byId('edit-modal').style.display = 'flex';
 }
 
 async function ulozAction(id, mode) {
@@ -819,31 +712,6 @@ async function ulozAction(id, mode) {
   }
   await loadBootstrap();
   zatvorModal('edit-modal');
-}
-
-async function pridajPoznamkuKNaradi(id) {
-  const item = data.tools.find(n => String(n._id) === String(id));
-  if (!item) return;
-  const text = prompt('Poznámka k náradiu:');
-  if (!text) return;
-  await api(`/api/tools/${id}`, 'PUT', {
-    ...item,
-    poznamky: [...(item.poznamky || []), { text, datum: new Date().toLocaleString('sk-SK'), autor: actualUser?.meno || '' }]
-  });
-  await loadBootstrap();
-}
-
-async function reportInspection(id) {
-  const item = data.tools.find(n => String(n._id) === String(id));
-  if (!item) return;
-  const note = prompt('Záznam o kontrole / servise:');
-  if (!note) return;
-  await api(`/api/tools/${id}`, 'PUT', {
-    ...item,
-    udrzba: [...(item.udrzba || []), { datum: new Date().toLocaleString('sk-SK'), text: note, autor: actualUser?.meno || '' }],
-    historie: [...(item.historie || []), { typ: 'udrzba', datum: new Date().toLocaleString('sk-SK'), popis: note }]
-  });
-  await loadBootstrap();
 }
 
 function spustiRannySken() {
@@ -892,11 +760,9 @@ async function safeStopScanner() {
 
 function zrusScanner() {
   safeStopScanner();
-  if (byId('scanner-ranny')) byId('scanner-ranny').style.display = 'none';
-  if (byId('scanner-vecerny')) byId('scanner-vecerny').style.display = 'none';
-  if (byId('scanner-presun')) byId('scanner-presun').style.display = 'none';
-  if (byId('scanner-osobne')) byId('scanner-osobne').style.display = 'none';
-  if (byId('scanner-vyhladavanie')) byId('scanner-vyhladavanie').style.display = 'none';
+  ['scanner-ranny', 'scanner-vecerny', 'scanner-presun', 'scanner-osobne', 'scanner-vyhladavanie'].forEach(id => {
+    if (byId(id)) byId(id).style.display = 'none';
+  });
   qrMode = null;
 }
 
@@ -909,7 +775,7 @@ async function startScanner(mode) {
   if (!wrapper) return;
 
   wrapper.style.display = 'block';
-  wrapper.innerHTML = `<div id="${elementId}-reader"></div>`;
+  wrapper.innerHTML = `<div id="${elementId}-reader" class="scanner-reader"></div>`;
 
   const scanner = new Html5Qrcode(`${elementId}-reader`);
   const config = { fps: 10, qrbox: { width: 250, height: 250 } };
@@ -979,6 +845,27 @@ function onScanSuccess(decodedText, mode) {
   }
 }
 
+function renderRannyZoznam() {
+  const el = byId('ranny-zoznam');
+  if (!el) return;
+  el.innerHTML = rannySkenList.length ? rannySkenList.map(i => `
+    <div>${esc(i.nazov)} <button class="ghost-btn" onclick="odstranZRanneho('${esc(i.qr_kod)}')">Odstrániť</button></div>
+  `).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>';
+}
+
+function renderVecernyZoznam() {
+  const el = byId('vecerny-zoznam');
+  if (!el) return;
+  el.innerHTML = vecernySkenList.length ? vecernySkenList.map(i => `
+    <div>${esc(i.nazov)} <button class="ghost-btn" onclick="odstranZVecerneho('${esc(i.qr_kod)}')">Odstrániť</button></div>
+  `).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>';
+}
+
+function renderSkensOverview() {
+  if (byId('ranny-info')) byId('ranny-info').textContent = `Naskenované: ${rannySkenList.length}`;
+  if (byId('vecerny-info')) byId('vecerny-info').textContent = `Naskenované: ${vecernySkenList.length}`;
+}
+
 function odstranZRanneho(qr) {
   rannySkenList = rannySkenList.filter(i => i.qr_kod !== qr);
   uzNaskenovaneRano.delete(qr);
@@ -1008,50 +895,39 @@ function zrusPresunSken() {
   if (byId('potvrdi-presun')) byId('potvrdi-presun').disabled = true;
 }
 
-function odstranOsobneNaradie(index) {
-  osobneNaradieBuffer.splice(index, 1);
-  renderOsobneNaradie();
-}
-
 function spustiVyhladavaciSken() {
   if (byId('scanner-vyhladavanie')) byId('scanner-vyhladavanie').style.display = 'block';
   startScanner('search');
 }
 
 async function ulozRannySken() {
-  const lokaciaId = byId('ranna-lokacia')?.value || byId('moj-stavba-select')?.value || localStorage.getItem('veduciLokaciaId') || '';
+  const lokaciaId = byId('ranna-lokacia')?.value || actualUser?.stavba_id || '';
   if (!lokaciaId) return alert('Vyber stavbu.');
-  await api('/api/scans', {
-    method: 'POST',
-    body: JSON.stringify({
-      uzivatel: actualUser?.meno || '',
-      lokacia_id: lokaciaId,
-      lokacia_nazov: data.locations.find(l => String(l._id) === String(lokaciaId))?.nazov || '',
-      typ: 'ranny_sken',
-      data: [...rannySkenList],
-      datum_cas: new Date().toLocaleString('sk-SK')
-    })
+  await api('/api/scans', 'POST', {
+    uzivatel: actualUser?.meno || '',
+    lokacia_id: lokaciaId,
+    lokacia_nazov: data.locations.find(l => String(l._id) === String(lokaciaId))?.nazov || '',
+    typ: 'ranny_sken',
+    data: [...rannySkenList],
+    datum_cas: new Date().toLocaleString('sk-SK')
   });
   alert('Ranný sken uložený.');
   await loadBootstrap();
 }
 
 async function porovnajVecernySken() {
-  const lokaciaId = byId('vecerna-lokacia')?.value || byId('moj-stavba-select')?.value || localStorage.getItem('veduciLokaciaId') || '';
+  const lokaciaId = byId('vecerna-lokacia')?.value || actualUser?.stavba_id || '';
   if (!lokaciaId) return alert('Vyber stavbu.');
   const chybajuce = rannySkenList.filter(i => !vecernySkenList.some(v => v.qr_kod === i.qr_kod));
   if (chybajuce.length > 0) return alert('Chýba náradie:\n' + chybajuce.map(i => i.nazov).join('\n'));
 
-  await api('/api/scans', {
-    method: 'POST',
-    body: JSON.stringify({
-      uzivatel: actualUser?.meno || '',
-      lokacia_id: lokaciaId,
-      lokacia_nazov: data.locations.find(l => String(l._id) === String(lokaciaId))?.nazov || '',
-      typ: 'vecerny_sken',
-      data: [...vecernySkenList],
-      datum_cas: new Date().toLocaleString('sk-SK')
-    })
+  await api('/api/scans', 'POST', {
+    uzivatel: actualUser?.meno || '',
+    lokacia_id: lokaciaId,
+    lokacia_nazov: data.locations.find(l => String(l._id) === String(lokaciaId))?.nazov || '',
+    typ: 'vecerny_sken',
+    data: [...vecernySkenList],
+    datum_cas: new Date().toLocaleString('sk-SK')
   });
   alert('Večerný sken sedí s ranným.');
   await loadBootstrap();
@@ -1099,24 +975,14 @@ function zatvorModal(id) {
 }
 
 function renderStavbyAdminUi() {
-  const is = isAdmin();
   const box = byId('stavby-admin-box');
   if (!box) return;
-  box.innerHTML = is ? `
+  box.innerHTML = isAdmin() ? `
     <h3>Pridať stavbu</h3>
     <input id="stavba-nazov" type="text" placeholder="Názov stavby" />
     <input id="stavba-adresa" type="text" placeholder="Adresa" />
-    <select id="stavba-veduci-select"></select>
     <button class="primary-btn" type="button" onclick="pridajStavbu()">Pridať stavbu</button>
   ` : '';
-  renderVeduciSelectForStavby();
-}
-
-function renderVeduciSelectForStavby() {
-  const el = byId('stavba-veduci-select');
-  if (!el) return;
-  const options = data.users.filter(u => u.rola === 'veduci_stavby').map(u => `<option value="${u._id}">${esc(u.meno)}</option>`).join('');
-  el.innerHTML = `<option value="">Vyber vedúceho</option>${options}`;
 }
 
 function renderSkladyAdminUi() {
@@ -1126,29 +992,16 @@ function renderSkladyAdminUi() {
     <h3>Pridať sklad</h3>
     <input id="sklad-nazov" type="text" placeholder="Názov skladu" />
     <input id="sklad-adresa" type="text" placeholder="Adresa" />
-    <select id="sklad-veduci-select"></select>
     <button class="primary-btn" type="button" onclick="pridajSklad()">Pridať sklad</button>
   ` : '';
-  renderVeduciSelectForSklady();
-}
-
-function renderVeduciSelectForSklady() {
-  const el = byId('sklad-veduci-select');
-  if (!el) return;
-  const options = data.users.filter(u => u.rola === 'veduci_stavby').map(u => `<option value="${u._id}">${esc(u.meno)}</option>`).join('');
-  el.innerHTML = `<option value="">Vyber vedúceho</option>${options}`;
 }
 
 async function pridajStavbu() {
   if (!isAdmin()) return alert('Nemáš oprávnenie.');
-  const veduciId = byId('stavba-veduci-select')?.value || '';
-  const veduci = data.users.find(u => String(u._id) === String(veduciId));
   const body = {
     nazov: byId('stavba-nazov')?.value.trim(),
     typ: 'stavba',
-    adresa: byId('stavba-adresa')?.value.trim(),
-    veduci_id: veduciId,
-    veduci_meno: veduci?.meno || ''
+    adresa: byId('stavba-adresa')?.value.trim()
   };
   if (!body.nazov) return alert('Zadaj názov stavby.');
   await api('/api/locations', 'POST', body);
@@ -1158,43 +1011,15 @@ async function pridajStavbu() {
 
 async function pridajSklad() {
   if (!isAdmin()) return alert('Nemáš oprávnenie.');
-  const veduciId = byId('sklad-veduci-select')?.value || '';
-  const veduci = data.users.find(u => String(u._id) === String(veduciId));
   const body = {
     nazov: byId('sklad-nazov')?.value.trim(),
     typ: 'sklad',
-    adresa: byId('sklad-adresa')?.value.trim(),
-    veduci_id: veduciId,
-    veduci_meno: veduci?.meno || ''
+    adresa: byId('sklad-adresa')?.value.trim()
   };
   if (!body.nazov) return alert('Zadaj názov skladu.');
   await api('/api/locations', 'POST', body);
   alert('Sklad bol úspešne pridaný.');
   await loadBootstrap();
-}
-
-function renderAll() {
-  if (!actualUser) {
-    showLogin();
-    return;
-  }
-  showApp();
-  renderStats();
-  renderLocations();
-  renderSelects();
-  renderTools();
-  renderHistory();
-  renderAdmin();
-  renderVeduciPanel();
-  renderHome();
-  renderUsers();
-  renderOsobneNaradie();
-  renderRannyZoznam();
-  renderVecernyZoznam();
-  renderSkensOverview();
-  renderStavbyAdminUi();
-  renderSkladyAdminUi();
-  showSection(currentSection);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

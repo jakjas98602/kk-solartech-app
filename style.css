@@ -218,7 +218,7 @@ textarea {
   margin-bottom: 18px;
 }
 
-.stats-grid, .mini-stats {
+.mini-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -312,10 +312,14 @@ textarea {
   margin-top: 14px;
 }
 
-.card img {
-  border-radius: 12px;
+.qr-image {
+  width: 260px;
+  height: 260px;
+  object-fit: contain;
   background: #fff;
+  border-radius: 12px;
   padding: 8px;
+  margin-top: 10px;
 }
 
 .detail-box ul {
@@ -346,6 +350,40 @@ textarea {
   padding: 22px;
 }
 
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.tool-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.tool-card img {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px;
+  margin: 10px 0;
+}
+
+.scanner-reader {
+  width: 100%;
+  min-height: 320px;
+  background: #0f1728;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
 #home-actions {
   margin-top: 16px;
 }
@@ -363,13 +401,7 @@ textarea {
   min-height: 220px;
 }
 
-#scanner-ranny #ranny-zoznam,
-#scanner-vecerny #vecerny-zoznam,
-#scanner-osobne #osobne-zoznam {
-  margin-top: 12px;
-}
-
-#zoznam-naradia, #zoznam-lokacii, #zoznam-pouzitvatelov, #zoznam-presunov {
+#zoznam-naradia, #zoznam-lokacii, #zoznam-pouzivatelov, #zoznam-presunov {
   display: block;
 }
 
@@ -400,7 +432,7 @@ textarea {
     margin-bottom: 0;
   }
 
-  .grid-2, .stats-grid, .mini-stats {
+  .grid-2, .mini-stats, .tools-grid {
     grid-template-columns: 1fr;
   }
 
