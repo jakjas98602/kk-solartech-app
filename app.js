@@ -9,72 +9,677 @@ let uzNaskenovaneRano = new Set();
 let uzNaskenovaneVecer = new Set();
 let veduciStavbyLokaciaId = '';
 let osobneNaradieBuffer = [];
+let bootstrapLoaded = false;
 
 const byId = id => document.getElementById(id);
 
 async function api(path, method = 'GET', body = null) {
-  const res = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : null });
+  const res = await fetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : null
+  });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
-function showLogin() { byId('login-screen').style.display = 'flex'; byId('main-app').style.display = 'none'; }
-function showApp() { byId('login-screen').style.display = 'none'; byId('main-app').style.display = 'block'; if (actualUser) byId('meno-uzivatela').textContent = `${actualUser.meno} (${actualUser.rola})`; }
-function saveSession() { if (actualUser) localStorage.setItem('kk_user', JSON.stringify({ meno: actualUser.meno, rola: actualUser.rola })); else localStorage.removeItem('kk_user'); }
-function prelozStatus(status) { return ({ dostupne: 'Dostupné', na_stavbe: 'Na stavbe', oprava: 'Oprava', stratene: 'Stratené', presunute: 'Presunuté' }[status] || status || 'Nezadané'); }
+function showLogin() {
+  const login = byId('login-screen');
+  const main = byId('main-app');
+  if (login) login.style.display = 'flex';
+  if (main) main.style.display = 'none';
+}
 
-async function loadBootstrap() { data = await api('/api/all'); const saved = JSON.parse(localStorage.getItem('kk_user') || 'null'); actualUser = saved ? data.users.find(u => u.meno === saved.meno && u.rola === saved.rola) || null : null; if (actualUser?.rola === 'veduci_stavby') veduciStavbyLokaciaId = actualUser.stavba_id || localStorage.getItem('veduciLokaciaId') || ''; renderAll(); }
-async function prihlasSa() { const meno = byId('login-meno').value.trim(); const heslo = byId('login-heslo').value; if (!meno || !heslo) return alert('Zadaj meno a heslo.'); const u = data.users.find(x => x.meno === meno && x.heslo === heslo); if (!u) return alert('Nesprávne meno alebo heslo.'); actualUser = u; saveSession(); showApp(); renderAll(); }
-function odhlasSa() { actualUser = null; saveSession(); showLogin(); }
+function showApp() {
+  const login = byId('login-screen');
+  const main = byId('main-app');
+  if (login) login.style.display = 'none';
+  if (main) main.style.display = 'block';
+  if (actualUser && byId('meno-uzivatela')) {
+    byId('meno-uzivatela').textContent = `${actualUser.meno} (${actualUser.rola})`;
+  }
+}
 
-function renderStats() { byId('stat-lokacie').textContent = data.locations.length; byId('stat-naradie').textContent = data.tools.length; byId('stat-presuny').textContent = data.moves.length; byId('stat-skeny').textContent = data.scans.length; }
-function renderUsers() { const el = byId('zoznam-pouzitvatelov'); if (!el) return; el.innerHTML = data.users.length ? data.users.map(u => `<div class="pouzitvatel-item"><strong>${u.meno}</strong> (${u.rola})<br>${u.email || ''}${u.rola === 'veduci_stavby' && u.stavba_id ? `<br><span class="small-muted">Stavba: ${data.locations.find(l => String(l._id) === String(u.stavba_id))?.nazov || '-'}</span>` : ''}<div class="row-actions"><button class="ghost-btn" onclick="upravUserPasswordAdmin('${u._id}')">Zmeniť heslo</button></div></div>`).join('') : '<p>Žiadni používatelia.</p>'; }
-function renderLocations() { const el = byId('zoznam-lokacii'); if (!el) return; el.innerHTML = data.locations.length ? data.locations.map(l => `<div class="lokacia-item"><strong>${l.nazov}</strong> <span class="badge">${l.typ}</span><br>${l.adresa || ''}<div class="small-muted">Vedúci: ${l.veduci_meno || '-'}</div></div>`).join('') : '<p>Žiadne lokácie.</p>'; }
-function renderSelects() { const opts = data.locations.map(l => `<option value="${l._id}">${l.nazov}</option>`).join(''); ['aktualna-lokacia', 'ciel-lokacia', 'ranna-lokacia', 'vecerna-lokacia', 'filter-lokacia', 'moj-stavba-select'].forEach(id => { const el = byId(id); if (!el) return; if (id === 'filter-lokacia') el.innerHTML = `<option value="">Všetky lokácie</option>${opts}`; else if (id === 'moj-stavba-select') el.innerHTML = `<option value="">Vyber stavbu</option>${data.locations.filter(l => l.typ === 'stavba').map(l => `<option value="${l._id}">${l.nazov}</option>`).join('')}`; else el.innerHTML = `<option value="">Vyber lokáciu</option>${opts}`; }); }
-function renderTools() { const el = byId('zoznam-naradia'); if (!el) return; const q = (byId('filter-hladaj')?.value || '').trim().toLowerCase(); const qr = (byId('filter-qr')?.value || '').trim().toLowerCase(); const st = byId('filter-status')?.value || ''; const loc = byId('filter-lokacia')?.value || ''; const list = data.tools.filter(n => { const hay = `${n.nazov} ${n.qr_kod} ${n.kategoria || ''} ${n.interne_cislo || ''}`.toLowerCase(); return (!q || hay.includes(q)) && (!qr || String(n.qr_kod).toLowerCase().includes(qr)) && (!st || n.stav === st) && (!loc || String(n.aktualna_lokacia_id) === String(loc)); }); el.innerHTML = list.length ? list.map(n => `<div class="naradie-item"><strong>${n.nazov}</strong> <span class="badge">✓ ${prelozStatus(n.stav)}</span><br>QR: ${n.qr_kod}<br>Interné číslo: ${n.interne_cislo || '-'}<br>Kategória: ${n.kategoria || '-'}<br><div class="lokacia-label">Nachádza sa: <strong>${n.aktualna_lokacia || '-'}</strong></div><div class="row-actions"><button class="ghost-btn" onclick="otvorDetail('${n._id}')">Detail</button><button class="ghost-btn" onclick="otvorUpravu('${n._id}')">Upraviť</button></div></div>`).join('') : '<p>Žiadne náradie nespĺňa filter.</p>'; }
-function renderHistory() { const el = byId('zoznam-presunov'); if (!el) return; el.innerHTML = data.moves.length ? data.moves.slice().reverse().map(p => `<div class="history-item"><strong>${p.datum_cas || ''}</strong><br>${p.kto_spravil || ''} presunul náradie z <strong>${p.z_lokacie || '-'}</strong> do <strong>${p.do_lokacie || '-'}</strong></div>`).join('') : '<p>Žiadna história presunov.</p>'; }
-function renderAdmin() { if (byId('admin-panel')) byId('admin-panel').style.display = actualUser?.rola === 'admin' ? 'block' : 'none'; if (byId('veduci-panel')) byId('veduci-panel').style.display = actualUser?.rola === 'veduci_stavby' ? 'block' : 'none'; if (byId('password-panel')) byId('password-panel').style.display = actualUser ? 'block' : 'none'; if (byId('my-stavba-section')) byId('my-stavba-section').style.display = actualUser?.rola === 'veduci_stavby' ? 'block' : 'none'; }
-function renderLeaderArea() { const box = byId('moj-stav'); if (box) { const loc = data.locations.find(l => String(l._id) === String(localStorage.getItem('veduciLokaciaId') || actualUser?.stavba_id || '')); box.innerHTML = loc ? `<strong>Aktuálna stavba:</strong> ${loc.nazov}<br><span class="small-muted">${loc.adresa || ''}</span>` : 'Zatiaľ nie si priradený k žiadnej stavbe.'; } const list = byId('moje-naradie'); if (list) { const myTools = data.tools.filter(t => String(t.vlastnik_meno || '') === String(actualUser?.meno || '')); list.innerHTML = myTools.length ? myTools.map(t => `<div class="naradie-item"><strong>${t.nazov}</strong><br>QR: ${t.qr_kod}<br>Stav: ${prelozStatus(t.stav)}</div>`).join('') : '<p>Nemáš zatiaľ žiadne náradie priradené na meno.</p>'; } }
-function renderOsobneNaradie() { const el = byId('osobne-zoznam'); if (!el) return; el.innerHTML = osobneNaradieBuffer.length ? osobneNaradieBuffer.map((i, idx) => `<div class="naradie-item"><strong>${i.nazov}</strong><br>QR: ${i.qr_kod}<br><div class="row-actions"><button class="ghost-btn" onclick="odstranOsobneNaradie(${idx})">Odstrániť</button></div></div>`).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>'; }
-function renderAll() { if (!actualUser) { showLogin(); return; } showApp(); renderStats(); renderUsers(); renderLocations(); renderSelects(); renderTools(); renderHistory(); renderAdmin(); renderLeaderArea(); renderOsobneNaradie(); }
+function saveSession() {
+  if (actualUser) {
+    localStorage.setItem('kk_user', JSON.stringify({ meno: actualUser.meno, rola: actualUser.rola }));
+  } else {
+    localStorage.removeItem('kk_user');
+  }
+}
 
-async function zmenHeslo() { const stare = byId('stare-heslo').value; const nove = byId('nove-heslo-zmena').value; const potvrd = byId('potvrdit-heslo-zmena').value; const me = data.users.find(u => u.meno === actualUser?.meno); if (!me) return alert('Používateľ sa nenašiel.'); if (me.heslo !== stare) return alert('Staré heslo nesedí.'); if (!nove || nove.length < 4) return alert('Nové heslo musí mať aspoň 4 znaky.'); if (nove !== potvrd) return alert('Heslá sa nezhodujú.'); await api(`/api/users/${me._id}`, 'PUT', { ...me, heslo: nove }); alert('Heslo bolo zmenené.'); byId('stare-heslo').value = ''; byId('nove-heslo-zmena').value = ''; byId('potvrdit-heslo-zmena').value = ''; }
-async function upravUserPasswordAdmin(id) { const u = data.users.find(x => String(x._id) === String(id)); if (!u) return; const nove = prompt(`Zadaj nové heslo pre ${u.meno}:`); if (!nove) return; await api(`/api/users/${u._id}`, 'PUT', { ...u, heslo: nove }); await loadBootstrap(); }
-async function pridajPouzivatela() { if (actualUser?.rola !== 'admin') return alert('Nemáš oprávnenie.'); const body = { meno: byId('nove-meno').value.trim(), email: byId('novy-email').value.trim(), heslo: byId('nove-heslo').value, rola: byId('nova-rola').value, stavba_id: '' }; if (!body.meno || !body.heslo) return alert('Zadaj meno a heslo.'); await api('/api/users', 'POST', body); await loadBootstrap(); }
-async function pridajSaNaStavbu() { const loc = byId('moj-stavba-select').value; if (!loc) return alert('Vyber stavbu.'); veduciStavbyLokaciaId = loc; localStorage.setItem('veduciLokaciaId', loc); await api(`/api/users/${actualUser._id}`, 'PUT', { ...actualUser, stavba_id: loc }); await loadBootstrap(); alert('Bol si priradený k stavbe.'); }
-async function otvorPridanieOsobnehoNadia() { if (actualUser?.rola !== 'veduci_stavby') return alert('Toto je len pre vedúceho stavby.'); osobneNaradieBuffer = []; byId('scanner-osobne').style.display = 'block'; byId('osobne-info').textContent = 'Skenuj QR kódy náradia. Každý naskenovaný kus sa zobrazí v zozname.'; await startScanner('osobne'); }
-function zrusPridavanieOsobnehoNadia() { safeStopScanner(); const el = byId('scanner-osobne'); if (el) el.style.display = 'none'; byId('osobne-info').textContent = 'Pridávanie náradia bolo zastavené.'; }
-async function potvrdiOsobneNaradie() { if (actualUser?.rola !== 'veduci_stavby') return alert('Toto je len pre vedúceho stavby.'); if (!osobneNaradieBuffer.length) return alert('Najprv naskenuj aspoň jedno náradie.'); const locId = localStorage.getItem('veduciLokaciaId') || actualUser?.stavba_id || ''; const loc = data.locations.find(l => String(l._id) === String(locId)); if (!loc) return alert('Najprv si priraď stavbu.'); for (const item of osobneNaradieBuffer) { const tool = data.tools.find(t => String(t._id) === String(item._id)); if (!tool) continue; await api(`/api/tools/${tool._id}`, 'PUT', { ...tool, vlastnik_meno: actualUser.meno, aktualna_lokacia_id: loc._id, aktualna_lokacia: loc.nazov, stav: 'na_stavbe', historie: [...(tool.historie || []), { typ: 'priradenie', datum: new Date().toLocaleString('sk-SK'), popis: `Priradené pod ${actualUser.meno}` }] }); } osobneNaradieBuffer = []; renderOsobneNaradie(); byId('osobne-info').textContent = 'Náradie bolo priradené pod tvoje meno.'; await loadBootstrap(); }
-function odstranOsobneNaradie(index) { osobneNaradieBuffer.splice(index, 1); renderOsobneNaradie(); }
-async function pridajLokaciu() { if (actualUser?.rola !== 'admin') return alert('Lokácie môže pridávať iba admin.'); const body = { nazov: byId('lokacia-nazov').value.trim(), typ: byId('lokacia-typ').value, adresa: byId('lokacia-adresa').value.trim(), veduci_meno: byId('lokacia-veduci').value.trim() }; if (!body.nazov) return alert('Zadaj názov lokácie.'); await api('/api/locations', 'POST', body); await loadBootstrap(); }
-async function pridajNaradie() { if (actualUser?.rola !== 'admin') return alert('Náradie môže pridávať iba admin.'); const file = byId('fotka-sitku').files[0]; const reader = new FileReader(); reader.onload = async e => { const loc = data.locations.find(l => String(l._id) === String(byId('aktualna-lokacia').value)); const qr = `QR-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; const body = { nazov: byId('naradie-nazov').value.trim(), interne_cislo: byId('naradie-cislo').value.trim(), kategoria: byId('naradie-kategoria').value.trim(), fotka_sitku: file ? e.target.result : '', aktualna_lokacia_id: loc?._id || '', aktualna_lokacia: loc?.nazov || '', stav: 'dostupne', qr_kod: qr, vlastnik_meno: '', historie: [{ typ: 'vytvorenie', datum: new Date().toLocaleString('sk-SK'), popis: 'Náradie vytvoril admin' }], poznamky: [], udrzba: [] }; await api('/api/tools', 'POST', body); await loadBootstrap(); }; if (file) reader.readAsDataURL(file); else reader.onload({ target: { result: '' } }); }
-function otvorLokaciu(id) { const l = data.locations.find(x => String(x._id) === String(id)); const count = data.tools.filter(n => String(n.aktualna_lokacia_id) === String(id)).length; alert(`Lokácia: ${l?.nazov || ''}\nPočet náradia: ${count}`); }
-function otvorDetail(id) { const item = data.tools.find(n => String(n._id) === String(id)); if (!item) return; document.getElementById('detail-content').innerHTML = `<div class="detail-box"><p><strong>Názov:</strong> ${item.nazov}</p><p><strong>QR:</strong> ${item.qr_kod}</p><p><strong>Interné číslo:</strong> ${item.interne_cislo || '-'}</p><p><strong>Kategória:</strong> ${item.kategoria || '-'}</p><p><strong>Stav:</strong> ✓ ${prelozStatus(item.stav)}</p><p><strong>Lokácia:</strong> ${item.aktualna_lokacia || '-'}</p><p><strong>Vlastník:</strong> ${item.vlastnik_meno || '-'}</p><div class="row"><button class="primary-btn" onclick="presunNaStavbuZDetailu('${item._id}')">✓ Presun na stavbu</button><button class="ghost-btn" onclick="zatvorModal('detail-modal')">Zavrieť</button></div></div>`; document.getElementById('detail-modal').style.display = 'flex'; }
-async function presunNaradieNaLokaciu(id, lokaciaId, novyStatus) { const item = data.tools.find(n => String(n._id) === String(id)); if (!item) return; const loc = data.locations.find(l => String(l._id) === String(lokaciaId)); if (!loc) return alert('Lokácia sa nenašla.'); const old = item.aktualna_lokacia || '-'; const update = { aktualna_lokacia_id: loc._id, aktualna_lokacia: loc.nazov, stav: novyStatus, historie: [...(item.historie || []), { typ: 'presun', datum: new Date().toLocaleString('sk-SK'), popis: `Presun z ${old} do ${loc.nazov}` }] }; const move = { naradie_id: item._id, z_lokacie: old, do_lokacie: loc.nazov, datum_cas: new Date().toLocaleString('sk-SK'), kto_spravil: actualUser?.meno || '', stav_presunu: 'dorucene' }; await api(`/api/tools/${item._id}`, 'PUT', update); await api('/api/moves', 'POST', move); await loadBootstrap(); }
-function presunNaStavbuZDetailu(id) { const stavba = data.locations.find(l => l.typ === 'stavba'); if (!stavba) return alert('Nemáš žiadnu stavbu.'); presunNaradieNaLokaciu(id, stavba._id, 'na_stavbe'); }
-function otvorUpravu(id) { alert('Použi detail alebo presun.'); }
-function zatvorModal(id) { byId(id).style.display = 'none'; }
+function prelozStatus(status) {
+  return ({
+    dostupne: 'Dostupné',
+    na_stavbe: 'Na stavbe',
+    oprava: 'Oprava',
+    stratene: 'Stratené',
+    presunute: 'Presunuté'
+  }[status] || status || 'Nezadané');
+}
 
-async function getBackCameraDeviceId() { try { const devices = await Html5Qrcode.getCameras(); if (!devices || !devices.length) return null; const back = devices.find(d => { const label = (d.label || '').toLowerCase(); return label.includes('back') || label.includes('rear') || label.includes('environment'); }); return back ? back.id : devices[0].id; } catch { return null; } }
-async function safeStopScanner() { try { if (qrScanner) { await qrScanner.stop(); await qrScanner.clear(); qrScanner = null; } } catch (e) { console.warn(e); } }
-async function startScanner(mode) { await safeStopScanner(); const elementId = mode === 'ranny' ? 'scanner-ranny' : mode === 'vecerny' ? 'scanner-vecerny' : mode === 'presun' ? 'scanner-presun' : mode === 'osobne' ? 'scanner-osobne' : 'scanner-vyhladavanie'; const statusId = mode === 'ranny' ? 'ranny-scanner-status' : mode === 'vecerny' ? 'vecerny-scanner-status' : mode === 'presun' ? 'presun-scanner-status' : mode === 'osobne' ? 'osobne-scanner-status' : 'vyhladavanie-status'; const wrapper = byId(elementId); const status = byId(statusId); if (!wrapper) return; wrapper.style.display = 'block'; wrapper.innerHTML = `<div id="${elementId}-reader"></div>`; const scanner = new Html5Qrcode(`${elementId}-reader`); const config = { fps: 10, qrbox: { width: 250, height: 250 } }; try { if (status) status.textContent = 'Pripravujem kameru...'; try { await scanner.start({ facingMode: { exact: 'environment' } }, config, decodedText => onScanSuccess(decodedText, mode), () => {}); } catch (e1) { const camId = await getBackCameraDeviceId(); if (!camId) throw e1; await scanner.start({ deviceId: { exact: camId } }, config, decodedText => onScanSuccess(decodedText, mode), () => {}); } qrScanner = scanner; qrMode = mode; if (status) status.textContent = 'Kamera je spustená.'; } catch (e) { if (status) status.textContent = `Nejde spustiť kameru: ${e?.message || e}`; wrapper.innerHTML = `<div class="info-box">Nejde spustiť kameru. ${e?.message || e}</div>`; } }
-function onScanSuccess(decodedText, mode) { if (mode === 'osobne') { const item = data.tools.find(n => n.qr_kod === decodedText || String(n._id) === decodedText); if (!item) return alert('Tento QR kód nepatrí žiadnemu existujúcemu náradiu.'); if (osobneNaradieBuffer.some(i => i.qr_kod === item.qr_kod)) return alert('Toto náradie už je v zozname.'); osobneNaradieBuffer.push({ _id: item._id, nazov: item.nazov, qr_kod: item.qr_kod }); renderOsobneNaradie(); byId('osobne-info').textContent = `Naskenované: ${osobneNaradieBuffer.length} kusov`; return; } if (mode === 'ranny') { const item = data.tools.find(n => n.qr_kod === decodedText || String(n._id) === decodedText); if (!item) return alert('QR kód nepatrí žiadnemu náradiu.'); if (uzNaskenovaneRano.has(item.qr_kod)) return alert('Toto náradie už bolo naskenované.'); uzNaskenovaneRano.add(item.qr_kod); rannySkenList.push({ qr_kod: item.qr_kod, nazov: item.nazov }); renderRannyZoznam(); return; } if (mode === 'vecerny') { const item = data.tools.find(n => n.qr_kod === decodedText || String(n._id) === decodedText); if (!item) return alert('QR kód nepatrí žiadnemu náradiu.'); if (uzNaskenovaneVecer.has(item.qr_kod)) return alert('Toto náradie už bolo naskenované.'); uzNaskenovaneVecer.add(item.qr_kod); vecernySkenList.push({ qr_kod: item.qr_kod, nazov: item.nazov }); renderVecernyZoznam(); return; } if (mode === 'presun') { const item = data.tools.find(n => n.qr_kod === decodedText || String(n._id) === decodedText); if (!item) return alert('QR kód nepatrí žiadnemu náradiu.'); vybrateNaradieId = item._id; byId('info-presun').textContent = `Vybraté náradie: ${item.nazov}`; byId('potvrdi-presun').disabled = false; return; } if (mode === 'search') { byId('filter-qr').value = decodedText; byId('vyhladavanie-status').textContent = `Nájdené: ${decodedText}`; renderTools(); } }
-function renderRannyZoznam() { const el = byId('ranny-zoznam'); if (!el) return; el.innerHTML = rannySkenList.length ? rannySkenList.map(i => `<div>${i.nazov} <button class="ghost-btn" onclick="odstranZRanneho('${i.qr_kod}')">Odstrániť</button></div>`).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>'; }
-function renderVecernyZoznam() { const el = byId('vecerny-zoznam'); if (!el) return; el.innerHTML = vecernySkenList.length ? vecernySkenList.map(i => `<div>${i.nazov} <button class="ghost-btn" onclick="odstranZVecerneho('${i.qr_kod}')">Odstrániť</button></div>`).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>'; }
-function odstranZRanneho(qr) { rannySkenList = rannySkenList.filter(i => i.qr_kod !== qr); uzNaskenovaneRano.delete(qr); renderRannyZoznam(); }
-function odstranZVecerneho(qr) { vecernySkenList = vecernySkenList.filter(i => i.qr_kod !== qr); uzNaskenovaneVecer.delete(qr); renderVecernyZoznam(); }
+async function loadBootstrap() {
+  data = await api('/api/all');
+  bootstrapLoaded = true;
+
+  const saved = JSON.parse(localStorage.getItem('kk_user') || 'null');
+  actualUser = saved ? data.users.find(u => u.meno === saved.meno && u.rola === saved.rola) || null : null;
+
+  if (actualUser?.rola === 'veduci_stavby') {
+    veduciStavbyLokaciaId = actualUser.stavba_id || localStorage.getItem('veduciLokaciaId') || '';
+  }
+
+  renderAll();
+}
+
+async function ensureBootstrap() {
+  if (!bootstrapLoaded || !data || !Array.isArray(data.users)) {
+    await loadBootstrap();
+  }
+}
+
+async function prihlasSa() {
+  try {
+    await ensureBootstrap();
+
+    const meno = (byId('login-meno')?.value || '').trim();
+    const heslo = byId('login-heslo')?.value || '';
+
+    if (!meno || !heslo) return alert('Zadaj meno a heslo.');
+
+    const u = data.users.find(x =>
+      String(x.meno).trim().toLowerCase() === meno.toLowerCase() &&
+      String(x.heslo) === heslo
+    );
+
+    if (!u) return alert('Nesprávne meno alebo heslo.');
+
+    actualUser = u;
+    saveSession();
+    showApp();
+    renderAll();
+  } catch (err) {
+    console.error(err);
+    alert('Prihlásenie zlyhalo. Skontroluj server a dáta.');
+  }
+}
+
+function odhlasSa() {
+  actualUser = null;
+  saveSession();
+  showLogin();
+}
+
+function renderStats() {
+  if (byId('stat-lokacie')) byId('stat-lokacie').textContent = data.locations.length;
+  if (byId('stat-naradie')) byId('stat-naradie').textContent = data.tools.length;
+  if (byId('stat-presuny')) byId('stat-presuny').textContent = data.moves.length;
+  if (byId('stat-skeny')) byId('stat-skeny').textContent = data.scans.length;
+}
+
+function renderUsers() {
+  const el = byId('zoznam-pouzitvatelov');
+  if (!el) return;
+  el.innerHTML = data.users.length
+    ? data.users.map(u => `<div class="pouzitvatel-item"><strong>${u.meno}</strong> (${u.rola})<br>${u.email || ''}${u.rola === 'veduci_stavby' && u.stavba_id ? `<br><span class="small-muted">Stavba: ${data.locations.find(l => String(l._id) === String(u.stavba_id))?.nazov || '-'}</span>` : ''}<div class="row-actions"><button class="ghost-btn" onclick="upravUserPasswordAdmin('${u._id}')">Zmeniť heslo</button></div></div>`).join('')
+    : '<p>Žiadni používatelia.</p>';
+}
+
+function renderLocations() {
+  const el = byId('zoznam-lokacii');
+  if (!el) return;
+  el.innerHTML = data.locations.length
+    ? data.locations.map(l => `<div class="lokacia-item"><strong>${l.nazov}</strong> <span class="badge">${l.typ}</span><br>${l.adresa || ''}<div class="small-muted">Vedúci: ${l.veduci_meno || '-'}</div></div>`).join('')
+    : '<p>Žiadne lokácie.</p>';
+}
+
+function renderSelects() {
+  const opts = data.locations.map(l => `<option value="${l._id}">${l.nazov}</option>`).join('');
+  ['aktualna-lokacia', 'ciel-lokacia', 'ranna-lokacia', 'vecerna-lokacia', 'filter-lokacia', 'moj-stavba-select'].forEach(id => {
+    const el = byId(id);
+    if (!el) return;
+    if (id === 'filter-lokacia') el.innerHTML = `<option value="">Všetky lokácie</option>${opts}`;
+    else if (id === 'moj-stavba-select') el.innerHTML = `<option value="">Vyber stavbu</option>${data.locations.filter(l => l.typ === 'stavba').map(l => `<option value="${l._id}">${l.nazov}</option>`).join('')}`;
+    else el.innerHTML = `<option value="">Vyber lokáciu</option>${opts}`;
+  });
+}
+
+function renderTools() {
+  const el = byId('zoznam-naradia');
+  if (!el) return;
+
+  const q = (byId('filter-hladaj')?.value || '').trim().toLowerCase();
+  const qr = (byId('filter-qr')?.value || '').trim().toLowerCase();
+  const st = byId('filter-status')?.value || '';
+  const loc = byId('filter-lokacia')?.value || '';
+
+  const list = data.tools.filter(n => {
+    const hay = `${n.nazov} ${n.qr_kod} ${n.kategoria || ''} ${n.interne_cislo || ''}`.toLowerCase();
+    return (!q || hay.includes(q)) &&
+      (!qr || String(n.qr_kod).toLowerCase().includes(qr)) &&
+      (!st || n.stav === st) &&
+      (!loc || String(n.aktualna_lokacia_id) === String(loc));
+  });
+
+  el.innerHTML = list.length
+    ? list.map(n => `<div class="naradie-item"><strong>${n.nazov}</strong> <span class="badge">✓ ${prelozStatus(n.stav)}</span><br>QR: ${n.qr_kod}<br>Interné číslo: ${n.interne_cislo || '-'}<br>Kategória: ${n.kategoria || '-'}<br><div class="lokacia-label">Nachádza sa: <strong>${n.aktualna_lokacia || '-'}</strong></div><div class="row-actions"><button class="ghost-btn" onclick="otvorDetail('${n._id}')">Detail</button><button class="ghost-btn" onclick="otvorUpravu('${n._id}')">Upraviť</button></div></div>`).join('')
+    : '<p>Žiadne náradie nespĺňa filter.</p>';
+}
+
+function renderHistory() {
+  const el = byId('zoznam-presunov');
+  if (!el) return;
+  el.innerHTML = data.moves.length
+    ? data.moves.slice().reverse().map(p => `<div class="history-item"><strong>${p.datum_cas || ''}</strong><br>${p.kto_spravil || ''} presunul náradie z <strong>${p.z_lokacie || '-'}</strong> do <strong>${p.do_lokacie || '-'}</strong></div>`).join('')
+    : '<p>Žiadna história presunov.</p>';
+}
+
+function renderAdmin() {
+  if (byId('admin-panel')) byId('admin-panel').style.display = actualUser?.rola === 'admin' ? 'block' : 'none';
+  if (byId('veduci-panel')) byId('veduci-panel').style.display = actualUser?.rola === 'veduci_stavby' ? 'block' : 'none';
+  if (byId('password-panel')) byId('password-panel').style.display = actualUser ? 'block' : 'none';
+  if (byId('my-stavba-section')) byId('my-stavba-section').style.display = actualUser?.rola === 'veduci_stavby' ? 'block' : 'none';
+}
+
+function renderLeaderArea() {
+  const box = byId('moj-stav');
+  if (box) {
+    const loc = data.locations.find(l => String(l._id) === String(localStorage.getItem('veduciLokaciaId') || actualUser?.stavba_id || ''));
+    box.innerHTML = loc ? `<strong>Aktuálna stavba:</strong> ${loc.nazov}<br><span class="small-muted">${loc.adresa || ''}</span>` : 'Zatiaľ nie si priradený k žiadnej stavbe.';
+  }
+
+  const list = byId('moje-naradie');
+  if (list) {
+    const myTools = data.tools.filter(t => String(t.vlastnik_meno || '') === String(actualUser?.meno || ''));
+    list.innerHTML = myTools.length
+      ? myTools.map(t => `<div class="naradie-item"><strong>${t.nazov}</strong><br>QR: ${t.qr_kod}<br>Stav: ${prelozStatus(t.stav)}</div>`).join('')
+      : '<p>Nemáš zatiaľ žiadne náradie priradené na meno.</p>';
+  }
+}
+
+function renderOsobneNaradie() {
+  const el = byId('osobne-zoznam');
+  if (!el) return;
+  el.innerHTML = osobneNaradieBuffer.length
+    ? osobneNaradieBuffer.map((i, idx) => `<div class="naradie-item"><strong>${i.nazov}</strong><br>QR: ${i.qr_kod}<br><div class="row-actions"><button class="ghost-btn" onclick="odstranOsobneNaradie(${idx})">Odstrániť</button></div></div>`).join('')
+    : '<p class="muted">Zatiaľ nič naskenované.</p>';
+}
+
+function renderAll() {
+  if (!actualUser) {
+    showLogin();
+    return;
+  }
+  showApp();
+  renderStats();
+  renderUsers();
+  renderLocations();
+  renderSelects();
+  renderTools();
+  renderHistory();
+  renderAdmin();
+  renderLeaderArea();
+  renderOsobneNaradie();
+}
+
+async function zmenHeslo() {
+  const stare = byId('stare-heslo').value;
+  const nove = byId('nove-heslo-zmena').value;
+  const potvrd = byId('potvrdit-heslo-zmena').value;
+  const me = data.users.find(u => u.meno === actualUser?.meno);
+  if (!me) return alert('Používateľ sa nenašiel.');
+  if (me.heslo !== stare) return alert('Staré heslo nesedí.');
+  if (!nove || nove.length < 4) return alert('Nové heslo musí mať aspoň 4 znaky.');
+  if (nove !== potvrd) return alert('Heslá sa nezhodujú.');
+  await api(`/api/users/${me._id}`, 'PUT', { ...me, heslo: nove });
+  alert('Heslo bolo zmenené.');
+  byId('stare-heslo').value = '';
+  byId('nove-heslo-zmena').value = '';
+  byId('potvrdit-heslo-zmena').value = '';
+}
+
+async function upravUserPasswordAdmin(id) {
+  const u = data.users.find(x => String(x._id) === String(id));
+  if (!u) return;
+  const nove = prompt(`Zadaj nové heslo pre ${u.meno}:`);
+  if (!nove) return;
+  await api(`/api/users/${u._id}`, 'PUT', { ...u, heslo: nove });
+  await loadBootstrap();
+}
+
+async function pridajPouzivatela() {
+  if (actualUser?.rola !== 'admin') return alert('Nemáš oprávnenie.');
+  const body = {
+    meno: byId('nove-meno').value.trim(),
+    email: byId('novy-email').value.trim(),
+    heslo: byId('nove-heslo').value,
+    rola: byId('nova-rola').value,
+    stavba_id: ''
+  };
+  if (!body.meno || !body.heslo) return alert('Zadaj meno a heslo.');
+  await api('/api/users', 'POST', body);
+  await loadBootstrap();
+}
+
+async function pridajSaNaStavbu() {
+  const loc = byId('moj-stavba-select').value;
+  if (!loc) return alert('Vyber stavbu.');
+  veduciStavbyLokaciaId = loc;
+  localStorage.setItem('veduciLokaciaId', loc);
+  await api(`/api/users/${actualUser._id}`, 'PUT', { ...actualUser, stavba_id: loc });
+  await loadBootstrap();
+  alert('Bol si priradený k stavbe.');
+}
+
+async function otvorPridanieOsobnehoNadia() {
+  if (actualUser?.rola !== 'veduci_stavby') return alert('Toto je len pre vedúceho stavby.');
+  osobneNaradieBuffer = [];
+  byId('scanner-osobne').style.display = 'block';
+  byId('osobne-info').textContent = 'Skenuj QR kódy náradia. Každý naskenovaný kus sa zobrazí v zozname.';
+  await startScanner('osobne');
+}
+
+function zrusPridavanieOsobnehoNadia() {
+  safeStopScanner();
+  const el = byId('scanner-osobne');
+  if (el) el.style.display = 'none';
+  byId('osobne-info').textContent = 'Pridávanie náradia bolo zastavené.';
+}
+
+async function potvrdiOsobneNaradie() {
+  if (actualUser?.rola !== 'veduci_stavby') return alert('Toto je len pre vedúceho stavby.');
+  if (!osobneNaradieBuffer.length) return alert('Najprv naskenuj aspoň jedno náradie.');
+  const locId = localStorage.getItem('veduciLokaciaId') || actualUser?.stavba_id || '';
+  const loc = data.locations.find(l => String(l._id) === String(locId));
+  if (!loc) return alert('Najprv si priraď stavbu.');
+
+  for (const item of osobneNaradieBuffer) {
+    const tool = data.tools.find(t => String(t._id) === String(item._id));
+    if (!tool) continue;
+    await api(`/api/tools/${tool._id}`, 'PUT', {
+      ...tool,
+      vlastnik_meno: actualUser.meno,
+      aktualna_lokacia_id: loc._id,
+      aktualna_lokacia: loc.nazov,
+      stav: 'na_stavbe',
+      historie: [...(tool.historie || []), { typ: 'priradenie', datum: new Date().toLocaleString('sk-SK'), popis: `Priradené pod ${actualUser.meno}` }]
+    });
+  }
+
+  osobneNaradieBuffer = [];
+  renderOsobneNaradie();
+  byId('osobne-info').textContent = 'Náradie bolo priradené pod tvoje meno.';
+  await loadBootstrap();
+}
+
+function odstranOsobneNaradie(index) {
+  osobneNaradieBuffer.splice(index, 1);
+  renderOsobneNaradie();
+}
+
+async function pridajLokaciu() {
+  if (actualUser?.rola !== 'admin') return alert('Lokácie môže pridávať iba admin.');
+  const body = {
+    nazov: byId('lokacia-nazov').value.trim(),
+    typ: byId('lokacia-typ').value,
+    adresa: byId('lokacia-adresa').value.trim(),
+    veduci_meno: byId('lokacia-veduci').value.trim()
+  };
+  if (!body.nazov) return alert('Zadaj názov lokácie.');
+  await api('/api/locations', 'POST', body);
+  await loadBootstrap();
+}
+
+async function pridajNaradie() {
+  if (actualUser?.rola !== 'admin') return alert('Náradie môže pridávať iba admin.');
+  const file = byId('fotka-sitku').files[0];
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const loc = data.locations.find(l => String(l._id) === String(byId('aktualna-lokacia').value));
+    const qr = `QR-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const body = {
+      nazov: byId('naradie-nazov').value.trim(),
+      interne_cislo: byId('naradie-cislo').value.trim(),
+      kategoria: byId('naradie-kategoria').value.trim(),
+      fotka_sitku: file ? e.target.result : '',
+      aktualna_lokacia_id: loc?._id || '',
+      aktualna_lokacia: loc?.nazov || '',
+      stav: 'dostupne',
+      qr_kod: qr,
+      vlastnik_meno: '',
+      historie: [{ typ: 'vytvorenie', datum: new Date().toLocaleString('sk-SK'), popis: 'Náradie vytvoril admin' }],
+      poznamky: [],
+      udrzba: []
+    };
+    await api('/api/tools', 'POST', body);
+    await loadBootstrap();
+  };
+  if (file) reader.readAsDataURL(file);
+  else reader.onload({ target: { result: '' } });
+}
+
+function otvorDetail(id) {
+  const item = data.tools.find(n => String(n._id) === String(id));
+  if (!item) return;
+  document.getElementById('detail-content').innerHTML = `<div class="detail-box"><p><strong>Názov:</strong> ${item.nazov}</p><p><strong>QR:</strong> ${item.qr_kod}</p><p><strong>Interné číslo:</strong> ${item.interne_cislo || '-'}</p><p><strong>Kategória:</strong> ${item.kategoria || '-'}</p><p><strong>Stav:</strong> ✓ ${prelozStatus(item.stav)}</p><p><strong>Lokácia:</strong> ${item.aktualna_lokacia || '-'}</p><p><strong>Vlastník:</strong> ${item.vlastnik_meno || '-'}</p><div class="row"><button class="primary-btn" onclick="presunNaStavbuZDetailu('${item._id}')">✓ Presun na stavbu</button><button class="ghost-btn" onclick="zatvorModal('detail-modal')">Zavrieť</button></div></div>`;
+  document.getElementById('detail-modal').style.display = 'flex';
+}
+
+async function presunNaradieNaLokaciu(id, lokaciaId, novyStatus) {
+  const item = data.tools.find(n => String(n._id) === String(id));
+  if (!item) return;
+  const loc = data.locations.find(l => String(l._id) === String(lokaciaId));
+  if (!loc) return alert('Lokácia sa nenašla.');
+  const old = item.aktualna_lokacia || '-';
+  const update = {
+    aktualna_lokacia_id: loc._id,
+    aktualna_lokacia: loc.nazov,
+    stav: novyStatus,
+    historie: [...(item.historie || []), { typ: 'presun', datum: new Date().toLocaleString('sk-SK'), popis: `Presun z ${old} do ${loc.nazov}` }]
+  };
+  const move = {
+    naradie_id: item._id,
+    z_lokacie: old,
+    do_lokacie: loc.nazov,
+    datum_cas: new Date().toLocaleString('sk-SK'),
+    kto_spravil: actualUser?.meno || '',
+    stav_presunu: 'dorucene'
+  };
+  await api(`/api/tools/${item._id}`, 'PUT', update);
+  await api('/api/moves', 'POST', move);
+  await loadBootstrap();
+}
+
+function presunNaStavbuZDetailu(id) {
+  const stavba = data.locations.find(l => l.typ === 'stavba');
+  if (!stavba) return alert('Nemáš žiadnu stavbu.');
+  presunNaradieNaLokaciu(id, stavba._id, 'na_stavbe');
+}
+
+function otvorUpravu(id) {
+  alert('Použi detail alebo presun.');
+}
+
+function zatvorModal(id) {
+  byId(id).style.display = 'none';
+}
+
+async function getBackCameraDeviceId() {
+  try {
+    const devices = await Html5Qrcode.getCameras();
+    if (!devices || !devices.length) return null;
+    const back = devices.find(d => {
+      const label = (d.label || '').toLowerCase();
+      return label.includes('back') || label.includes('rear') || label.includes('environment');
+    });
+    return back ? back.id : devices[0].id;
+  } catch {
+    return null;
+  }
+}
+
+async function safeStopScanner() {
+  try {
+    if (qrScanner) {
+      await qrScanner.stop();
+      await qrScanner.clear();
+      qrScanner = null;
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+async function startScanner(mode) {
+  await safeStopScanner();
+  const elementId =
+    mode === 'ranny' ? 'scanner-ranny' :
+    mode === 'vecerny' ? 'scanner-vecerny' :
+    mode === 'presun' ? 'scanner-presun' :
+    mode === 'osobne' ? 'scanner-osobne' :
+    'scanner-vyhladavanie';
+
+  const statusId =
+    mode === 'ranny' ? 'ranny-scanner-status' :
+    mode === 'vecerny' ? 'vecerny-scanner-status' :
+    mode === 'presun' ? 'presun-scanner-status' :
+    mode === 'osobne' ? 'osobne-scanner-status' :
+    'vyhladavanie-status';
+
+  const wrapper = byId(elementId);
+  const status = byId(statusId);
+  if (!wrapper) return;
+
+  wrapper.style.display = 'block';
+  wrapper.innerHTML = `<div id="${elementId}-reader"></div>`;
+
+  const scanner = new Html5Qrcode(`${elementId}-reader`);
+  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+  try {
+    if (status) status.textContent = 'Pripravujem kameru...';
+
+    try {
+      await scanner.start(
+        { facingMode: { exact: 'environment' } },
+        config,
+        decodedText => onScanSuccess(decodedText, mode),
+        () => {}
+      );
+    } catch (e1) {
+      const camId = await getBackCameraDeviceId();
+      if (!camId) throw e1;
+      await scanner.start(
+        { deviceId: { exact: camId } },
+        config,
+        decodedText => onScanSuccess(decodedText, mode),
+        () => {}
+      );
+    }
+
+    qrScanner = scanner;
+    qrMode = mode;
+    if (status) status.textContent = 'Kamera je spustená.';
+  } catch (e) {
+    if (status) status.textContent = `Nejde spustiť kameru: ${e?.message || e}`;
+    wrapper.innerHTML = `<div class="info-box">Nejde spustiť kameru. ${e?.message || e}</div>`;
+  }
+}
+
+function onScanSuccess(decodedText, mode) {
+  if (mode === 'osobne') {
+    const item = data.tools.find(n => n.qr_kod === decodedText || String(n._id) === decodedText);
+    if (!item) return alert('Tento QR kód nepatrí žiadnemu existujúcemu náradiu.');
+    if (osobneNaradieBuffer.some(i => i.qr_kod === item.qr_kod)) return alert('Toto náradie už je v zozname.');
+    osobneNaradieBuffer.push({ _id: item._id, nazov: item.nazov, qr_kod: item.qr_kod });
+    renderOsobneNaradie();
+    byId('osobne-info').textContent = `Naskenované: ${osobneNaradieBuffer.length} kusov`;
+    return;
+  }
+
+  if (mode === 'ranny') {
+    const item = data.tools.find(n => n.qr_kod === decodedText || String(n._id) === decodedText);
+    if (!item) return alert('QR kód nepatrí žiadnemu náradiu.');
+    if (uzNaskenovaneRano.has(item.qr_kod)) return alert('Toto náradie už bolo naskenované.');
+    uzNaskenovaneRano.add(item.qr_kod);
+    rannySkenList.push({ qr_kod: item.qr_kod, nazov: item.nazov });
+    renderRannyZoznam();
+    return;
+  }
+
+  if (mode === 'vecerny') {
+    const item = data.tools.find(n => n.qr_kod === decodedText || String(n._id) === decodedText);
+    if (!item) return alert('QR kód nepatrí žiadnemu náradiu.');
+    if (uzNaskenovaneVecer.has(item.qr_kod)) return alert('Toto náradie už bolo naskenované.');
+    uzNaskenovaneVecer.add(item.qr_kod);
+    vecernySkenList.push({ qr_kod: item.qr_kod, nazov: item.nazov });
+    renderVecernyZoznam();
+    return;
+  }
+
+  if (mode === 'presun') {
+    const item = data.tools.find(n => n.qr_kod === decodedText || String(n._id) === decodedText);
+    if (!item) return alert('QR kód nepatrí žiadnemu náradiu.');
+    vybrateNaradieId = item._id;
+    if (byId('info-presun')) byId('info-presun').textContent = `Vybraté náradie: ${item.nazov}`;
+    if (byId('potvrdi-presun')) byId('potvrdi-presun').disabled = false;
+    return;
+  }
+
+  if (mode === 'search') {
+    if (byId('filter-qr')) byId('filter-qr').value = decodedText;
+    if (byId('vyhladavanie-status')) byId('vyhladavanie-status').textContent = `Nájdené: ${decodedText}`;
+    renderTools();
+  }
+}
+
+function renderRannyZoznam() {
+  const el = byId('ranny-zoznam');
+  if (!el) return;
+  el.innerHTML = rannySkenList.length ? rannySkenList.map(i => `<div>${i.nazov} <button class="ghost-btn" onclick="odstranZRanneho('${i.qr_kod}')">Odstrániť</button></div>`).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>';
+}
+
+function renderVecernyZoznam() {
+  const el = byId('vecerny-zoznam');
+  if (!el) return;
+  el.innerHTML = vecernySkenList.length ? vecernySkenList.map(i => `<div>${i.nazov} <button class="ghost-btn" onclick="odstranZVecerneho('${i.qr_kod}')">Odstrániť</button></div>`).join('') : '<p class="muted">Zatiaľ nič naskenované.</p>';
+}
+
+function odstranZRanneho(qr) {
+  rannySkenList = rannySkenList.filter(i => i.qr_kod !== qr);
+  uzNaskenovaneRano.delete(qr);
+  renderRannyZoznam();
+}
+
+function odstranZVecerneho(qr) {
+  vecernySkenList = vecernySkenList.filter(i => i.qr_kod !== qr);
+  uzNaskenovaneVecer.delete(qr);
+  renderVecernyZoznam();
+}
+
 function otvorRannySken() { startScanner('ranny'); }
-function zrusRannySken() { safeStopScanner(); byId('scanner-ranny').style.display = 'none'; }
+function zrusRannySken() { safeStopScanner(); const el = byId('scanner-ranny'); if (el) el.style.display = 'none'; }
 function otvorVecernySken() { startScanner('vecerny'); }
-function zrusVecernySken() { safeStopScanner(); byId('scanner-vecerny').style.display = 'none'; }
-function spustiPresunSken() { startScanner('presun'); }
-function zrusPresunSken() { safeStopScanner(); byId('scanner-presun').style.display = 'none'; }
+function zrusVecernySken() { safeStopScanner(); const el = byId('scanner-vecerny'); if (el) el.style.display = 'none'; }
 function spustiVyhladavaciSken() { startScanner('search'); }
-async function ulozRannySken() { const lokaciaId = byId('ranna-lokacia').value; if (!lokaciaId) return alert('Vyber stavbu.'); await api('/api/scans', 'POST', { uzivatel: actualUser?.meno || '', lokacia_id: lokaciaId, lokacia_nazov: data.locations.find(l => String(l._id) === String(lokaciaId))?.nazov || '', typ: 'ranny_sken', data: [...rannySkenList], datum_cas: new Date().toLocaleString('sk-SK') }); alert('Ranný sken uložený.'); await loadBootstrap(); }
-async function porovnajVecernySken() { const lokaciaId = byId('vecerna-lokacia').value; if (!lokaciaId) return alert('Vyber stavbu.'); const chybajuce = rannySkenList.filter(i => !vecernySkenList.some(v => v.qr_kod === i.qr_kod)); if (chybajuce.length > 0) return alert('Chýba náradie:\n' + chybajuce.map(i => i.nazov).join('\n')); await api('/api/scans', 'POST', { uzivatel: actualUser?.meno || '', lokacia_id: lokaciaId, lokacia_nazov: data.locations.find(l => String(l._id) === String(lokaciaId))?.nazov || '', typ: 'vecerny_sken', data: [...vecernySkenList], datum_cas: new Date().toLocaleString('sk-SK') }); alert('Večerný sken sedí s ranným.'); await loadBootstrap(); }
-async function potvrdiPresun() { const cielId = byId('ciel-lokacia').value; if (!vybrateNaradieId) return alert('Najprv naskenuj náradie.'); if (!cielId) return alert('Vyber cieľovú lokáciu.'); const target = data.locations.find(l => String(l._id) === String(cielId)); if (!target) return alert('Cieľová lokácia sa nenašla.'); const item = data.tools.find(n => String(n._id) === String(vybrateNaradieId)); if (!item) return alert('Náradie sa nenašlo.'); const oldLoc = item.aktualna_lokacia || '-'; const update = { ...item, aktualna_lokacia_id: target._id, aktualna_lokacia: target.nazov, stav: 'presunute', historie: [...(item.historie || []), { typ: 'presun', datum: new Date().toLocaleString('sk-SK'), popis: `Presun z ${oldLoc} do ${target.nazov}` }] }; const move = { naradie_id: item._id, z_lokacie: oldLoc, do_lokacie: target.nazov, datum_cas: new Date().toLocaleString('sk-SK'), kto_spravil: actualUser?.meno || '', stav_presunu: 'dorucene' }; await api(`/api/tools/${item._id}`, 'PUT', update); await api('/api/moves', 'POST', move); await loadBootstrap(); }
-async function exportujCSV() { const rows = [['nazov','qr_kod','stav','lokacia','kategoria','interne_cislo','vlastnik_meno']]; data.tools.forEach(n => rows.push([n.nazov,n.qr_kod,n.stav || '',n.aktualna_lokacia || '',n.kategoria || '',n.interne_cislo || '',n.vlastnik_meno || ''])); const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'naradie_export.csv'; a.click(); URL.revokeObjectURL(url); }
-function exportujDennyReport() { localStorage.setItem('dennyReport', JSON.stringify({ datum: new Date().toLocaleDateString('sk-SK'), veduci: actualUser ? actualUser.meno : '', stavby: data.locations.map(l => l.nazov), naradie: data.tools.map(n => n.nazov), pocet_naradia: data.tools.length, rano: rannySkenList, vecer: vecernySkenList, presuny: data.moves.slice(-20) })); byId('report-info').textContent = 'Report pripravený na export.'; alert('Report uložený.'); }
-function ulozAktualnuLokaciuVeduceho() { const val = byId('veduci-aktualna-lokacia').value; localStorage.setItem('veduciLokaciaId', val || ''); if (actualUser) api(`/api/users/${actualUser._id}`, 'PUT', { ...actualUser, stavba_id: val || '' }).catch(console.error); }
 
-document.addEventListener('DOMContentLoaded', async () => { const loginBtn = document.querySelector('#login-btn'); if (loginBtn) loginBtn.addEventListener('click', prihlasSa); const meno = byId('login-meno'); const heslo = byId('login-heslo'); if (meno) meno.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasSa(); }); if (heslo) heslo.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasSa(); }); try { await loadBootstrap(); if (actualUser) showApp(); else showLogin(); } catch (e) { console.error(e); showLogin(); alert('Nepodarilo sa načítať dáta zo servera.'); } });
+async function ulozRannySken() {
+  const lokaciaId = byId('ranna-lokacia').value;
+  if (!lokaciaId) return alert('Vyber stavbu.');
+  await api('/api/scans', 'POST', {
+    uzivatel: actualUser?.meno || '',
+    lokacia_id: lokaciaId,
+    lokacia_nazov: data.locations.find(l => String(l._id) === String(lokaciaId))?.nazov || '',
+    typ: 'ranny_sken',
+    data: [...rannySkenList],
+    datum_cas: new Date().toLocaleString('sk-SK')
+  });
+  alert('Ranný sken uložený.');
+  await loadBootstrap();
+}
+
+async function porovnajVecernySken() {
+  const lokaciaId = byId('vecerna-lokacia').value;
+  if (!lokaciaId) return alert('Vyber stavbu.');
+  const chybajuce = rannySkenList.filter(i => !vecernySkenList.some(v => v.qr_kod === i.qr_kod));
+  if (chybajuce.length > 0) return alert('Chýba náradie:\n' + chybajuce.map(i => i.nazov).join('\n'));
+
+  await api('/api/scans', 'POST', {
+    uzivatel: actualUser?.meno || '',
+    lokacia_id: lokaciaId,
+    lokacia_nazov: data.locations.find(l => String(l._id) === String(lokaciaId))?.nazov || '',
+    typ: 'vecerny_sken',
+    data: [...vecernySkenList],
+    datum_cas: new Date().toLocaleString('sk-SK')
+  });
+  alert('Večerný sken sedí s ranným.');
+  await loadBootstrap();
+}
+
+async function potvrdiPresun() {
+  const cielId = byId('ciel-lokacia').value;
+  if (!vybrateNaradieId) return alert('Najprv naskenuj náradie.');
+  if (!cielId) return alert('Vyber cieľovú lokáciu.');
+
+  const target = data.locations.find(l => String(l._id) === String(cielId));
+  if (!target) return alert('Cieľová lokácia sa nenašla.');
+
+  const item = data.tools.find(n => String(n._id) === String(vybrateNaradieId));
+  if (!item) return alert('Náradie sa nenašlo.');
+
+  const oldLoc = item.aktualna_lokacia || '-';
+  const update = {
+    ...item,
+    aktualna_lokacia_id: target._id,
+    aktualna_lokacia: target.nazov,
+    stav: 'presunute',
+    historie: [...(item.historie || []), { typ: 'presun', datum: new Date().toLocaleString('sk-SK'), popis: `Presun z ${oldLoc} do ${target.nazov}` }]
+  };
+
+  const move = {
+    naradie_id: item._id,
+    z_lokacie: oldLoc,
+    do_lokacie: target.nazov,
+    datum_cas: new Date().toLocaleString('sk-SK'),
+    kto_spravil: actualUser?.meno || '',
+    stav_presunu: 'dorucene'
+  };
+
+  await api(`/api/tools/${item._id}`, 'PUT', update);
+  await api('/api/moves', 'POST', move);
+  await loadBootstrap();
+}
+
+async function exportujCSV() {
+  const rows = [['nazov','qr_kod','stav','lokacia','kategoria','interne_cislo','vlastnik_meno']];
+  data.tools.forEach(n => rows.push([n.nazov,n.qr_kod,n.stav || '',n.aktualna_lokacia || '',n.kategoria || '',n.interne_cislo || '',n.vlastnik_meno || '']));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'naradie_export.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportujDennyReport() {
+  localStorage.setItem('dennyReport', JSON.stringify({
+    datum: new Date().toLocaleDateString('sk-SK'),
+    veduci: actualUser ? actualUser.meno : '',
+    stavby: data.locations.map(l => l.nazov),
+    naradie: data.tools.map(n => n.nazov),
+    pocet_naradia: data.tools.length,
+    rano: rannySkenList,
+    vecer: vecernySkenList,
+    presuny: data.moves.slice(-20)
+  }));
+  if (byId('report-info')) byId('report-info').textContent = 'Report pripravený na export.';
+  alert('Report uložený.');
+}
+
+function ulozAktualnuLokaciuVeduceho() {
+  const val = byId('veduci-aktualna-lokacia').value;
+  localStorage.setItem('veduciLokaciaId', val || '');
+  if (actualUser) api(`/api/users/${actualUser._id}`, 'PUT', { ...actualUser, stavba_id: val || '' }).catch(console.error);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const loginBtn = document.querySelector('#login-btn');
+  if (loginBtn) loginBtn.addEventListener('click', prihlasSa);
+
+  const meno = byId('login-meno');
+  const heslo = byId('login-heslo');
+  if (meno) meno.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasSa(); });
+  if (heslo) heslo.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasSa(); });
+
+  try {
+    await loadBootstrap();
+    if (actualUser) showApp();
+    else showLogin();
+  } catch (e) {
+    console.error(e);
+    showLogin();
+    alert('Nepodarilo sa načítať dáta zo servera.');
+  }
+});
