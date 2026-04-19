@@ -11,6 +11,7 @@
 <body>
   <div id="login-screen" class="screen">
     <div class="auth-card">
+      <div class="brand-mark">KK</div>
       <h1>KK SolarTech</h1>
       <p>Prihlásenie do aplikácie</p>
       <input id="login-meno" type="text" placeholder="Meno" />
@@ -21,139 +22,196 @@
 
   <div id="main-app" style="display:none;">
     <header class="topbar">
-      <div>
-        <h2>KK SolarTech</h2>
-        <div id="meno-uzivatela" class="small-muted"></div>
+      <div class="topbar-left">
+        <div class="brand-mark small">KK</div>
+        <div>
+          <h2>KK SolarTech</h2>
+          <div id="meno-uzivatela" class="small-muted"></div>
+        </div>
       </div>
       <button class="ghost-btn" type="button" onclick="odhlasSa()">Odhlásiť sa</button>
     </header>
 
-    <main class="app-grid">
-      <section class="panel">
-        <h3>Štatistiky</h3>
-        <div class="stats-grid">
-          <div class="stat-box"><span id="stat-lokacie">0</span><small>Lokácie</small></div>
-          <div class="stat-box"><span id="stat-naradie">0</span><small>Náradie</small></div>
-          <div class="stat-box"><span id="stat-presuny">0</span><small>Presuny</small></div>
-          <div class="stat-box"><span id="stat-skeny">0</span><small>Skeny</small></div>
-        </div>
-      </section>
+    <div class="layout">
+      <aside class="sidebar">
+        <button class="nav-item active" type="button" onclick="showSection('home-section')">Domov</button>
+        <button class="nav-item" type="button" onclick="showSection('stavby-section')">Stavby</button>
+        <button class="nav-item" type="button" onclick="showSection('sklady-section')">Sklady</button>
+        <button class="nav-item" type="button" onclick="showSection('naradie-section')">Náradie</button>
+        <button class="nav-item" type="button" onclick="showSection('presuny-section')">Presuny</button>
+        <button class="nav-item" type="button" onclick="showSection('skeny-section')">Skeny</button>
+        <button class="nav-item" type="button" onclick="showSection('admin-section')">Admin</button>
+      </aside>
 
-      <section class="panel">
-        <h3>Filtrovanie náradia</h3>
-        <input id="filter-hladaj" type="text" placeholder="Hľadať podľa názvu" oninput="renderTools()" />
-        <input id="filter-qr" type="text" placeholder="QR kód" oninput="renderTools()" />
-        <select id="filter-status" onchange="renderTools()">
-          <option value="">Všetky stavy</option>
-          <option value="dostupne">Dostupné</option>
-          <option value="na_stavbe">Na stavbe</option>
-          <option value="oprava">Oprava</option>
-          <option value="stratene">Stratené</option>
-          <option value="presunute">Presunuté</option>
-        </select>
-        <select id="filter-lokacia" onchange="renderTools()"></select>
-      </section>
+      <main class="content">
+        <section id="home-section" class="page-section visible">
+          <div class="hero-card">
+            <div>
+              <div class="eyebrow">Domovská obrazovka</div>
+              <h1 id="home-title">Prehľad stavby</h1>
+              <p id="home-subtitle">Tu uvidíš svoju priradenú stavbu a prehľad naskenovaného náradia.</p>
+            </div>
+            <div class="hero-stats">
+              <div class="stat-box"><span id="home-naradie">0</span><small>Naskenované náradie</small></div>
+              <div class="stat-box"><span id="home-stavba">-</span><small>Priradená stavba</small></div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="panel">
+              <h3>Moja stavba</h3>
+              <div id="moj-stav" class="info-box"></div>
+            </div>
+            <div class="panel">
+              <h3>Dnešný prehľad</h3>
+              <div class="mini-stats">
+                <div class="mini-stat"><span id="stat-lokacie">0</span><small>Lokácie</small></div>
+                <div class="mini-stat"><span id="stat-naradie">0</span><small>Náradie</small></div>
+                <div class="mini-stat"><span id="stat-presuny">0</span><small>Presuny</small></div>
+                <div class="mini-stat"><span id="stat-skeny">0</span><small>Skeny</small></div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-      <section class="panel" id="admin-panel" style="display:none;">
-        <h3>Admin: pridať náradie</h3>
-        <input id="naradie-nazov" type="text" placeholder="Názov náradia" />
-        <input id="naradie-cislo" type="text" placeholder="Interné číslo" />
-        <input id="naradie-kategoria" type="text" placeholder="Kategória" />
-        <select id="aktualna-lokacia"></select>
-        <input id="fotka-sitku" type="file" accept="image/*" />
-        <button class="primary-btn" type="button" onclick="pridajNaradie()">Pridať náradie</button>
-        <div id="qr-container"></div>
-      </section>
+        <section id="stavby-section" class="page-section hidden">
+          <div class="page-head"><h2>Stavby</h2><p>Vyber stavbu a zobrazia sa detaily.</p></div>
+          <div class="panel">
+            <select id="moj-stavba-select"></select>
+            <button class="primary-btn" type="button" onclick="pridajSaNaStavbu()">Priradiť sa k stavbe</button>
+          </div>
+          <div class="panel">
+            <h3>Zoznam stavieb</h3>
+            <div id="zoznam-lokacii"></div>
+          </div>
+        </section>
 
-      <section class="panel" id="veduci-panel" style="display:none;">
-        <h3>Vedúci stavby</h3>
-        <div id="moj-stav" class="info-box"></div>
-        <select id="moj-stavba-select"></select>
-        <button class="primary-btn" type="button" onclick="pridajSaNaStavbu()">Priradiť sa k stavbe</button>
-        <div id="moje-naradie"></div>
-      </section>
+        <section id="sklady-section" class="page-section hidden">
+          <div class="page-head"><h2>Sklady</h2><p>Prehľad skladov a ich obsahu.</p></div>
+          <div class="panel">
+            <h3>Pridať sklad / lokáciu</h3>
+            <input id="lokacia-nazov" type="text" placeholder="Názov lokácie" />
+            <select id="lokacia-typ"><option value="stavba">Stavba</option><option value="sklad">Sklad</option></select>
+            <input id="lokacia-adresa" type="text" placeholder="Adresa" />
+            <input id="lokacia-veduci" type="text" placeholder="Vedúci" />
+            <button class="primary-btn" type="button" onclick="pridajLokaciu()">Pridať lokáciu</button>
+          </div>
+        </section>
 
-      <section class="panel" id="password-panel" style="display:none;">
-        <h3>Zmena hesla</h3>
-        <input id="stare-heslo" type="password" placeholder="Staré heslo" />
-        <input id="nove-heslo-zmena" type="password" placeholder="Nové heslo" />
-        <input id="potvrdit-heslo-zmena" type="password" placeholder="Potvrdiť heslo" />
-        <button class="primary-btn" type="button" onclick="zmenHeslo()">Zmeniť heslo</button>
-      </section>
+        <section id="naradie-section" class="page-section hidden">
+          <div class="page-head"><h2>Náradie</h2><p>Zoznam náradia s filtrami a detailom.</p></div>
+          <div class="grid-2">
+            <div class="panel">
+              <h3>Filtrovanie</h3>
+              <input id="filter-hladaj" type="text" placeholder="Hľadať podľa názvu" oninput="renderTools()" />
+              <input id="filter-qr" type="text" placeholder="QR kód" oninput="renderTools()" />
+              <select id="filter-status" onchange="renderTools()">
+                <option value="">Všetky stavy</option>
+                <option value="dostupne">Dostupné</option>
+                <option value="na_stavbe">Na stavbe</option>
+                <option value="oprava">Oprava</option>
+                <option value="stratene">Stratené</option>
+                <option value="presunute">Presunuté</option>
+              </select>
+              <select id="filter-lokacia" onchange="renderTools()"></select>
+            </div>
+            <div class="panel" id="admin-panel" style="display:none;">
+              <h3>Admin: pridať náradie</h3>
+              <input id="naradie-nazov" type="text" placeholder="Názov náradia" />
+              <input id="naradie-cislo" type="text" placeholder="Interné číslo" />
+              <input id="naradie-kategoria" type="text" placeholder="Kategória" />
+              <select id="aktualna-lokacia"></select>
+              <input id="fotka-sitku" type="file" accept="image/*" />
+              <button class="primary-btn" type="button" onclick="pridajNaradie()">Pridať náradie</button>
+              <div id="qr-container"></div>
+            </div>
+          </div>
+          <div class="panel"><div id="zoznam-naradia"></div></div>
+        </section>
 
-      <section class="panel" id="my-stavba-section" style="display:none;">
-        <h3>Moja stavba</h3>
-        <div id="moj-stav" class="info-box"></div>
-      </section>
+        <section id="presuny-section" class="page-section hidden">
+          <div class="page-head"><h2>Presuny</h2><p>Presun náradia medzi stavbami a skladmi.</p></div>
+          <div class="grid-2">
+            <div class="panel" id="scanner-presun" style="display:none;">
+              <h3>Presun sken</h3>
+              <div id="presun-scanner-status" class="small-muted"></div>
+              <div id="info-presun" class="info-box">Najprv naskenuj náradie.</div>
+              <select id="ciel-lokacia"></select>
+              <div class="row-actions">
+                <button id="potvrdi-presun" class="primary-btn" type="button" onclick="potvrdiPresun()" disabled>Potvrdiť presun</button>
+                <button class="ghost-btn" type="button" onclick="zrusPresunSken()">Zrušiť</button>
+              </div>
+            </div>
+            <div class="panel">
+              <h3>História presunov</h3>
+              <div id="zoznam-presunov"></div>
+            </div>
+          </div>
+        </section>
 
-      <section class="panel">
-        <h3>Lokácie</h3>
-        <div id="zoznam-lokacii"></div>
-      </section>
+        <section id="skeny-section" class="page-section hidden">
+          <div class="page-head"><h2>Skeny</h2><p>Ranný a večerný sken pre kontrolu náradia.</p></div>
+          <div class="grid-2">
+            <div class="panel" id="scanner-ranny" style="display:none;">
+              <h3>Ranný sken</h3>
+              <div id="ranny-scanner-status" class="small-muted"></div>
+              <div id="ranny-zoznam"></div>
+              <div class="row-actions">
+                <button class="primary-btn" type="button" onclick="ulozRannySken()">Uložiť ranný sken</button>
+                <button class="ghost-btn" type="button" onclick="zrusRannySken()">Zrušiť</button>
+              </div>
+            </div>
+            <div class="panel" id="scanner-vecerny" style="display:none;">
+              <h3>Večerný sken</h3>
+              <div id="vecerny-scanner-status" class="small-muted"></div>
+              <div id="vecerny-zoznam"></div>
+              <div class="row-actions">
+                <button class="primary-btn" type="button" onclick="porovnajVecernySken()">Porovnať sken</button>
+                <button class="ghost-btn" type="button" onclick="zrusVecernySken()">Zrušiť</button>
+              </div>
+            </div>
+            <div class="panel" id="scanner-osobne" style="display:none;">
+              <h3>Osobné náradie</h3>
+              <div id="osobne-info" class="info-box"></div>
+              <div id="osobne-scanner-status" class="small-muted"></div>
+              <div id="osobne-zoznam"></div>
+              <div class="row-actions">
+                <button class="primary-btn" type="button" onclick="potvrdiOsobneNaradie()">Potvrdiť</button>
+                <button class="ghost-btn" type="button" onclick="zrusPridavanieOsobnehoNadia()">Zrušiť</button>
+              </div>
+            </div>
+            <div class="panel" id="scanner-vyhladavanie" style="display:none;">
+              <h3>Vyhľadávanie QR</h3>
+              <div id="vyhladavanie-status" class="small-muted"></div>
+              <button class="primary-btn" type="button" onclick="spustiVyhladavaciSken()">Spustiť sken</button>
+            </div>
+          </div>
+        </section>
 
-      <section class="panel">
-        <h3>Náradie</h3>
-        <div id="zoznam-naradia"></div>
-      </section>
-
-      <section class="panel">
-        <h3>História presunov</h3>
-        <div id="zoznam-presunov"></div>
-      </section>
-
-      <section class="panel">
-        <h3>Používatelia</h3>
-        <div id="zoznam-pouzitvatelov"></div>
-      </section>
-
-      <section class="panel" id="scanner-osobne" style="display:none;">
-        <h3>Osobné náradie</h3>
-        <div id="osobne-info" class="info-box"></div>
-        <div id="osobne-scanner-status" class="small-muted"></div>
-        <div id="osobne-zoznam"></div>
-        <div class="row-actions">
-          <button class="primary-btn" type="button" onclick="potvrdiOsobneNaradie()">Potvrdiť</button>
-          <button class="ghost-btn" type="button" onclick="zrusPridavanieOsobnehoNadia()">Zrušiť</button>
-        </div>
-      </section>
-
-      <section class="panel" id="scanner-ranny" style="display:none;">
-        <h3>Ranný sken</h3>
-        <div id="ranny-scanner-status" class="small-muted"></div>
-        <div id="ranny-zoznam"></div>
-        <div class="row-actions">
-          <button class="primary-btn" type="button" onclick="ulozRannySken()">Uložiť ranný sken</button>
-          <button class="ghost-btn" type="button" onclick="zrusRannySken()">Zrušiť</button>
-        </div>
-      </section>
-
-      <section class="panel" id="scanner-vecerny" style="display:none;">
-        <h3>Večerný sken</h3>
-        <div id="vecerny-scanner-status" class="small-muted"></div>
-        <div id="vecerny-zoznam"></div>
-        <div class="row-actions">
-          <button class="primary-btn" type="button" onclick="porovnajVecernySken()">Porovnať sken</button>
-          <button class="ghost-btn" type="button" onclick="zrusVecernySken()">Zrušiť</button>
-        </div>
-      </section>
-
-      <section class="panel" id="scanner-presun" style="display:none;">
-        <h3>Presun sken</h3>
-        <div id="presun-scanner-status" class="small-muted"></div>
-        <div id="info-presun" class="info-box">Najprv naskenuj náradie.</div>
-        <select id="ciel-lokacia"></select>
-        <div class="row-actions">
-          <button id="potvrdi-presun" class="primary-btn" type="button" onclick="potvrdiPresun()" disabled>Potvrdiť presun</button>
-          <button class="ghost-btn" type="button" onclick="zrusPresunSken()">Zrušiť</button>
-        </div>
-      </section>
-
-      <section class="panel" id="scanner-vyhladavanie" style="display:none;">
-        <h3>Vyhľadávanie QR</h3>
-        <div id="vyhladavanie-status" class="small-muted"></div>
-        <button class="primary-btn" type="button" onclick="spustiVyhladavaciSken()">Spustiť sken</button>
-      </section>
-    </main>
+        <section id="admin-section" class="page-section hidden">
+          <div class="page-head"><h2>Admin</h2><p>Správa používateľov a nastavení.</p></div>
+          <div class="grid-2">
+            <div class="panel" id="password-panel" style="display:none;">
+              <h3>Zmena hesla</h3>
+              <input id="stare-heslo" type="password" placeholder="Staré heslo" />
+              <input id="nove-heslo-zmena" type="password" placeholder="Nové heslo" />
+              <input id="potvrdit-heslo-zmena" type="password" placeholder="Potvrdiť heslo" />
+              <button class="primary-btn" type="button" onclick="zmenHeslo()">Zmeniť heslo</button>
+            </div>
+            <div class="panel" id="veduci-panel" style="display:none;">
+              <h3>Vedúci stavby</h3>
+              <div id="moj-stav" class="info-box"></div>
+              <select id="moj-stavba-select"></select>
+              <button class="primary-btn" type="button" onclick="pridajSaNaStavbu()">Priradiť sa k stavbe</button>
+              <div id="moje-naradie"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Používatelia</h3>
+            <div id="zoznam-pouzitvatelov"></div>
+          </div>
+        </section>
+      </main>
+    </div>
   </div>
 
   <div id="detail-modal" class="modal" style="display:none;">
