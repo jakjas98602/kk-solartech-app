@@ -1,6 +1,5 @@
 ﻿const path = require('path');
 const express = require('express');
-const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
@@ -8,7 +7,6 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 const MONGODB_URI = process.env.MONGODB_URI;
 
-app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use(express.static(path.join(__dirname)));
