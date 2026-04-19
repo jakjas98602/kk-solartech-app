@@ -126,8 +126,10 @@
       </section>
 
       <section class="panel" id="naradie-section">
-        <div class="section-head"><h3>Náradie</h3><p>Vyhľadávanie podľa názvu aj QR kódu.</p></div>
-        <div class="filters"><input id="filter-hladaj" placeholder="Hľadať náradie" oninput="renderAll()"><input id="filter-qr" placeholder="Hľadať QR kód" oninput="renderAll()"><select id="filter-status" onchange="renderAll()"><option value="">Všetky statusy</option><option value="dostupne">Dostupné</option><option value="na_stavbe">Na stavbe</option><option value="oprava">Oprava</option><option value="stratene">Stratené</option><option value="presunute">Presunuté</option></select><select id="filter-lokacia" onchange="renderAll()"></select></div>
+        <div class="section-head"><h3>Náradie</h3><p>Vyhľadávanie podľa názvu, QR a skenovanie QR kódu.</p></div>
+        <div class="filters"><input id="filter-hladaj" placeholder="Hľadať náradie" oninput="renderAll()"><input id="filter-qr" placeholder="QR text / sken" oninput="renderAll()"><button class="ghost-btn" onclick="spustiVyhladavaciSken()">Skenovať QR</button><select id="filter-status" onchange="renderAll()"><option value="">Všetky statusy</option><option value="dostupne">Dostupné</option><option value="na_stavbe">Na stavbe</option><option value="oprava">Oprava</option><option value="stratene">Stratené</option><option value="presunute">Presunuté</option></select><select id="filter-lokacia" onchange="renderAll()"></select></div>
+        <div id="scanner-vyhladavanie" class="scanner-box" style="display:none;"></div>
+        <div id="vyhladavanie-status" class="muted"></div>
         <div id="zoznam-naradia" class="cards-grid"></div>
       </section>
 
