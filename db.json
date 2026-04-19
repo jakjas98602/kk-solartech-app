@@ -1,0 +1,49 @@
+{
+  "users": [
+    {
+      "_id": "u1",
+      "meno": "admin",
+      "email": "admin@kk.sk",
+      "heslo": "admin",
+      "rola": "admin",
+      "stavba_id": ""
+    },
+    {
+      "_id": "u2",
+      "meno": "veduci1",
+      "email": "veduci1@kk.sk",
+      "heslo": "1234",
+      "rola": "veduci_stavby",
+      "stavba_id": ""
+    },
+    {
+      "_id": "u3",
+      "meno": "user1",
+      "email": "user1@kk.sk",
+      "heslo": "1234",
+      "rola": "pouzivatel",
+      "stavba_id": ""
+    }
+  ],
+  "locations": [
+    {
+      "_id": "l1",
+      "nazov": "Sklad Bratislava",
+      "typ": "sklad",
+      "adresa": "Bratislava",
+      "veduci_id": "",
+      "veduci_meno": ""
+    },
+    {
+      "_id": "l2",
+      "nazov": "Stavba Trnava",
+      "typ": "stavba",
+      "adresa": "Trnava",
+      "veduci_id": "",
+      "veduci_meno": ""
+    }
+  ],
+  "tools": [],
+  "moves": [],
+  "scans": []
+}
