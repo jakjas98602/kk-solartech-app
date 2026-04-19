@@ -59,6 +59,18 @@
         <div class="stat-card"><span>Skeny</span><strong id="stat-skeny">0</strong></div>
       </section>
 
+      <section class="panel" id="password-panel">
+        <div class="section-head"><h3>Zmeniť heslo</h3><p>Každý prihlásený používateľ si vie zmeniť svoje heslo.</p></div>
+        <div class="grid-3">
+          <div class="card">
+            <input id="stare-heslo" type="password" placeholder="Staré heslo">
+            <input id="nove-heslo-zmena" type="password" placeholder="Nové heslo">
+            <input id="potvrdit-heslo-zmena" type="password" placeholder="Potvrď nové heslo">
+            <button class="primary-btn" onclick="zmenHeslo()">Zmeniť heslo</button>
+          </div>
+        </div>
+      </section>
+
       <section class="panel" id="admin-panel">
         <div class="section-head"><h3>Administrácia</h3><p>Správa používateľov, lokácií a náradia.</p></div>
         <div class="grid-3">
@@ -87,8 +99,22 @@
       </section>
 
       <section class="panel" id="veduci-panel">
-        <div class="section-head"><h3>Vedúci stavby</h3><p>Ranný a nočný režim plus presun náradia.</p></div>
+        <div class="section-head"><h3>Vedúci stavby</h3><p>Priradenie ku stavbe a náradie pod vlastné meno.</p></div>
         <div class="grid-3">
+          <div class="card" id="my-stavba-section" style="display:none;">
+            <h4>Moja stavba</h4>
+            <div id="moj-stav" class="info-box"></div>
+            <div class="row"><select id="moj-stavba-select"></select><button class="primary-btn" onclick="pridajSaNaStavbu()">Pridať sa k stavbe</button></div>
+            <h4>Pridať náradie pod moje meno</h4>
+            <button class="primary-btn" onclick="otvorPridanieOsobnehoNadia()">Pridať náradie</button>
+            <button class="ghost-btn" onclick="zrusPridavanieOsobnehoNadia()">Zrušiť sken</button>
+            <div id="scanner-osobne" class="scanner-box" style="display:none;"></div>
+            <div id="osobne-scanner-status" class="muted"></div>
+            <div id="osobne-info" class="info-box"></div>
+            <div id="osobne-zoznam" class="list-box"></div>
+            <button id="potvrdi-osobne" class="primary-btn" onclick="potvrdiOsobneNaradie()">Potvrdiť naskenované</button>
+            <div id="moje-naradie" class="list-box"></div>
+          </div>
           <div class="card">
             <h4>Ranný sken</h4>
             <select id="ranna-lokacia"></select>
@@ -106,16 +132,6 @@
             <div id="vecerny-scanner-status" class="muted"></div>
             <div id="vecerny-zoznam" class="list-box"></div>
             <button class="primary-btn" onclick="porovnajVecernySken()">✓ Uložiť nočný sken</button>
-          </div>
-          <div class="card">
-            <h4>Presun náradia</h4>
-            <select id="ciel-lokacia"></select>
-            <div class="row"><button class="primary-btn" onclick="spustiPresunSken()">Skenovať QR</button><button class="ghost-btn" onclick="zrusPresunSken()">Zastaviť</button></div>
-            <div id="scanner-presun" class="scanner-box" style="display:none;"></div>
-            <div id="presun-scanner-status" class="muted"></div>
-            <div id="info-presun" class="info-box"></div>
-            <button id="potvrdi-presun" class="primary-btn" disabled onclick="potvrdiPresun()">✓ Potvrdiť presun</button>
-            <select id="veduci-aktualna-lokacia" onchange="ulozAktualnuLokaciuVeduceho()"></select>
           </div>
         </div>
       </section>
