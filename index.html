@@ -127,7 +127,6 @@
 
         <section id="presuny-section" class="page-section hidden">
           <div class="page-head"><h2>Presuny</h2><p>Presun náradia medzi stavbami a skladmi.</p></div>
-
           <div class="panel">
             <h3>Filtrovanie presunov</h3>
             <div class="grid-2">
@@ -139,11 +138,11 @@
               <input id="move-filter-do" type="date" onchange="renderHistory()" />
             </div>
           </div>
-
           <div class="grid-2">
             <div class="panel" id="scanner-presun" style="display:none;">
               <h3>Presun sken</h3>
               <div id="presun-scanner-status" class="small-muted"></div>
+              <div id="presun-scanner-reader" class="scanner-reader"></div>
               <div id="info-presun" class="info-box">Najprv naskenuj náradie.</div>
               <select id="ciel-lokacia"></select>
               <div class="row-actions">
@@ -151,7 +150,6 @@
                 <button class="ghost-btn" type="button" onclick="zrusPresunSken()">Zrušiť</button>
               </div>
             </div>
-
             <div class="panel">
               <h3>História presunov</h3>
               <div id="zoznam-presunov"></div>
@@ -161,7 +159,6 @@
 
         <section id="skeny-section" class="page-section hidden">
           <div class="page-head"><h2>Skeny</h2><p>Ranný a večerný sken pre kontrolu náradia.</p></div>
-
           <div class="grid-2">
             <div class="panel">
               <h3>Ovládanie skenov</h3>
@@ -173,13 +170,11 @@
                 <button class="ghost-btn" type="button" onclick="spustiVyhladavaciSken()">Vyhľadávať QR</button>
               </div>
             </div>
-
             <div class="panel">
               <h3>Prehľad skenov</h3>
               <div id="ranny-info" class="info-box">Naskenované: 0</div>
               <div id="vecerny-info" class="info-box">Naskenované: 0</div>
             </div>
-
             <div class="panel" id="scanner-ranny" style="display:none;">
               <h3>Ranný sken</h3>
               <div id="ranny-scanner-status" class="small-muted"></div>
@@ -190,7 +185,6 @@
                 <button class="ghost-btn" type="button" onclick="zrusRannySken()">Zrušiť</button>
               </div>
             </div>
-
             <div class="panel" id="scanner-vecerny" style="display:none;">
               <h3>Večerný sken</h3>
               <div id="vecerny-scanner-status" class="small-muted"></div>
@@ -201,7 +195,6 @@
                 <button class="ghost-btn" type="button" onclick="zrusVecernySken()">Zrušiť</button>
               </div>
             </div>
-
             <div class="panel" id="scanner-osobne" style="display:none;">
               <h3>Osobné náradie</h3>
               <div id="osobne-info" class="info-box"></div>
@@ -213,7 +206,6 @@
                 <button class="ghost-btn" type="button" onclick="zrusPridavanieOsobnehoNadia()">Zrušiť</button>
               </div>
             </div>
-
             <div class="panel" id="scanner-vyhladavanie" style="display:none;">
               <h3>Vyhľadávanie QR</h3>
               <div id="vyhladavanie-status" class="small-muted"></div>

@@ -31,7 +31,7 @@ function loadDB() {
   }
   try {
     return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  } catch (e) {
+  } catch {
     const init = defaultDB();
     fs.writeFileSync(DB_FILE, JSON.stringify(init, null, 2), 'utf8');
     return init;
@@ -58,18 +58,13 @@ app.get('/api/users', (req, res) => {
 
 app.post('/api/users', (req, res) => {
   const db = loadDB();
-  const { meno, email, heslo, rola, stavba_id = '' } = req.body || {};
+  const { meno, email = '', heslo, rola, stavba_id = '' } = req.body || {};
   if (!meno || !heslo || !rola) return res.status(400).json({ error: 'Chýbajú povinné polia.' });
 
-  const user = {
-    _id: newId('u'),
-    meno,
-    email: email || '',
-    heslo,
-    rola,
-    stavba_id
-  };
+  const exists = db.users.some(u => String(u.meno).toLowerCase() === String(meno).toLowerCase());
+  if (exists) return res.status(409).json({ error: 'Používateľ už existuje.' });
 
+  const user = { _id: newId('u'), meno, email, heslo, rola, stavba_id };
   db.users.push(user);
   saveDB(db);
   res.json(user);
@@ -79,7 +74,6 @@ app.put('/api/users/:id', (req, res) => {
   const db = loadDB();
   const idx = db.users.findIndex(u => String(u._id) === String(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Používateľ sa nenašiel.' });
-
   db.users[idx] = { ...db.users[idx], ...req.body, _id: db.users[idx]._id };
   saveDB(db);
   res.json(db.users[idx]);
@@ -104,15 +98,7 @@ app.post('/api/locations', (req, res) => {
   const { nazov, typ, adresa = '', veduci_id = '', veduci_meno = '' } = req.body || {};
   if (!nazov || !typ) return res.status(400).json({ error: 'Chýbajú povinné polia.' });
 
-  const location = {
-    _id: newId('l'),
-    nazov,
-    typ,
-    adresa,
-    veduci_id,
-    veduci_meno
-  };
-
+  const location = { _id: newId('l'), nazov, typ, adresa, veduci_id, veduci_meno };
   db.locations.push(location);
   saveDB(db);
   res.json(location);
@@ -122,7 +108,6 @@ app.put('/api/locations/:id', (req, res) => {
   const db = loadDB();
   const idx = db.locations.findIndex(l => String(l._id) === String(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Lokácia sa nenašla.' });
-
   db.locations[idx] = { ...db.locations[idx], ...req.body, _id: db.locations[idx]._id };
   saveDB(db);
   res.json(db.locations[idx]);
@@ -159,7 +144,6 @@ app.post('/api/tools', (req, res) => {
     poznamky: Array.isArray(req.body?.poznamky) ? req.body.poznamky : [],
     udrzba: Array.isArray(req.body?.udrzba) ? req.body.udrzba : []
   };
-
   db.tools.push(tool);
   saveDB(db);
   res.json(tool);
@@ -169,7 +153,6 @@ app.put('/api/tools/:id', (req, res) => {
   const db = loadDB();
   const idx = db.tools.findIndex(t => String(t._id) === String(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Náradie sa nenašlo.' });
-
   db.tools[idx] = { ...db.tools[idx], ...req.body, _id: db.tools[idx]._id };
   saveDB(db);
   res.json(db.tools[idx]);
@@ -204,7 +187,6 @@ app.post('/api/moves', (req, res) => {
     typ: req.body?.typ || 'presun',
     poznamka: req.body?.poznamka || ''
   };
-
   db.moves.push(move);
   saveDB(db);
   res.json(move);
@@ -226,7 +208,6 @@ app.post('/api/scans', (req, res) => {
     data: Array.isArray(req.body?.data) ? req.body.data : [],
     datum_cas: req.body?.datum_cas || new Date().toLocaleString('sk-SK')
   };
-
   db.scans.push(scan);
   saveDB(db);
   res.json(scan);
